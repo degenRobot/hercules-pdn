@@ -17,7 +17,6 @@ import {
     Address
 } from "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/math/Math.sol";
-import "./interfaces/tarot.sol";
 import "./interfaces/uniswap.sol";
 
 import "./interfaces/ctoken.sol";

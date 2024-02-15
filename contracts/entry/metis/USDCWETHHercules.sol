@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import "../../CoreStrategyAave.sol";
 import "../../interfaces/IStakingRewards.sol";
 import "../../interfaces/aave/IAaveOracle.sol";
-import "../../interfaces/DragonLair.sol";
+
 import {
     SafeERC20,
     SafeMath,
@@ -20,8 +20,7 @@ import {
 contract USDCWETHHercules is CoreStrategyAave {
     using SafeERC20 for IERC20;
 
-    IERC20 quick;
-    DragonLair dragonLair;
+    IERC20 torch;
 
     constructor(address _vault)
         public
@@ -45,13 +44,13 @@ contract USDCWETHHercules is CoreStrategyAave {
 
     function _setup() internal override {
         weth = router.WETH(); // this is wMatic on quickswap 
-        quick = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
-        dragonLair = DragonLair(0xf28164A485B0B2C90639E47b0f377b4a438a16B1);
-        farmToken.safeApprove(address(dragonLair), uint256(-1));
-        quick.safeApprove(address(router), uint256(-1));
+        torch = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
+        //farmToken.safeApprove(address(dragonLair), uint256(-1));
+        torch.safeApprove(address(router), uint256(-1));
     }
 
     function balancePendingHarvest() public view override returns (uint256) {
+        /*
         uint256 dQuickPending =
             IStakingRewards(farmMasterChef).earned(address(this)).add(
                 farmToken.balanceOf(address(this))
@@ -69,6 +68,7 @@ contract USDCWETHHercules is CoreStrategyAave {
 
         (uint256 wantLP_B, uint256 shortLP_B) = getLpReserves();
         return total_wmatic.mul(wantLP_B).div(shortLP_B);
+        */
     }
 
     function _pendingRewards() internal view returns (uint256) {
@@ -84,18 +84,19 @@ contract USDCWETHHercules is CoreStrategyAave {
     function _sellHarvestWant() internal override {
         uint256 harvestBalance = farmToken.balanceOf(address(this));
 
+        /*
         if (dragonLair.balanceOf(address(this)) > 0) {
             dragonLair.leave(harvestBalance);
         }
+`       */
+        uint256 torchBalance = torch.balanceOf(address(this));
 
-        uint256 quickBalance = quick.balanceOf(address(this));
 
-
-        if (quickBalance > 0) {
+        if (torchBalance > 0) {
             router.swapExactTokensForTokens(
-                quickBalance,
+                torchBalance,
                 0,
-                getTokenOutPath(address(quick), address(want)),
+                getTokenOutPath(address(torch), address(want)),
                 address(this),
                 now
             );
