@@ -2,7 +2,8 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../../CoreStrategyAave.sol";
+import "../../CoreStrategyHercules.sol";
+import {CoreStrategyAaveConfig} from "../../CoreStrategyAave.sol";
 import "../../interfaces/IStakingRewards.sol";
 import "../../interfaces/aave/IAaveOracle.sol";
 
@@ -17,7 +18,7 @@ import {
 // AAVE addresses: https://docs.aave.com/developers/deployed-contracts/v3-mainnet/polygon
 // UniswapV2 Factory address: https://polygonscan.com/address/0x5757371414417b8c6caad45baef941abc7d3ab32
 
-contract USDCWETHHercules is CoreStrategyAave {
+contract USDCWETHHercules is CoreStrategyHercules {
     using SafeERC20 for IERC20;
 
     IERC20 torch;
@@ -45,6 +46,9 @@ contract USDCWETHHercules is CoreStrategyAave {
     function _setup() internal override {
         weth = router.WETH(); // this is wMatic on quickswap 
         torch = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
+        yieldBooster = address(0);
+        torchPool = ITorchPool(address(0));
+        xTorch = IXTorch(address(0));
         //farmToken.safeApprove(address(dragonLair), uint256(-1));
         torch.safeApprove(address(router), uint256(-1));
     }
@@ -75,11 +79,6 @@ contract USDCWETHHercules is CoreStrategyAave {
         return 0; // TODO
     }
 
-    function _depositLp() internal override {
-        uint256 lpBalance = wantShortLP.balanceOf(address(this));
-
-        IStakingRewards(farmMasterChef).stake(lpBalance);
-    }
 
     function _sellHarvestWant() internal override {
         uint256 harvestBalance = farmToken.balanceOf(address(this));
@@ -105,15 +104,4 @@ contract USDCWETHHercules is CoreStrategyAave {
         
     }
 
-    function _withdrawFarm(uint256 _amount) internal override {
-        if (_amount > 0) IStakingRewards(farmMasterChef).withdraw(_amount);
-    }
-
-    function claimHarvest() internal override {
-        IStakingRewards(farmMasterChef).getReward();
-    }
-
-    function countLpPooled() internal view override returns (uint256) {
-        return IStakingRewards(farmMasterChef).balanceOf(address(this));
-    }
 }

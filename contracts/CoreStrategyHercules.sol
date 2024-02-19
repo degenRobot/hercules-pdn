@@ -57,7 +57,9 @@ abstract contract CoreStrategyHercules is CoreStrategyAave, INFTHandler {
         return torchPool.pendingRewards(tokenId);
     }
 
-
+    function claimHarvest() internal override {
+        torchPool.harvestPosition(tokenId);
+    }
 
     function _stakeXTorch(uint256 _amount) internal {
         bytes memory usageData = abi.encode(address(torchPool), tokenId);

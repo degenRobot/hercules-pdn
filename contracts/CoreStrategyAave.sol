@@ -24,7 +24,7 @@ import "./interfaces/uniswap.sol";
 import {IStrategyInsurance} from "./StrategyInsurance.sol";
 import {BaseStrategyRedux} from "./BaseStrategyRedux.sol";
 import {ICamelotRouter} from "./interfaces/camelot/ICamelotRouter.sol";
-
+import {ICamelotPair} from "./interfaces/camelot/ICamelotPair.sol";
 
 struct CoreStrategyAaveConfig {
     // A portion of want token is depoisited into a lending platform to be used as
@@ -98,7 +98,7 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
     IERC20 public short;
     uint8 wantDecimals;
     uint8 shortDecimals;
-    IUniswapV2Pair wantShortLP; // This is public because it helps with unit testing
+    ICamelotPair wantShortLP; // This is public because it helps with unit testing
     IERC20 farmTokenLP;
     IERC20 farmToken;
     // Contract Interfaces
@@ -128,7 +128,7 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
     {
         // initialise token interfaces
         short = IERC20(_config.short);
-        wantShortLP = IUniswapV2Pair(_config.wantShortLP);
+        wantShortLP = ICamelotPair(_config.wantShortLP);
         farmTokenLP = IERC20(_config.farmTokenLP);
         farmToken = IERC20(_config.farmToken);
         wantDecimals = IERC20Extended(_config.want).decimals();
@@ -730,7 +730,7 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
         view
         returns (uint256 _wantInLp, uint256 _shortInLp)
     {
-        (uint112 reserves0, uint112 reserves1, ) = wantShortLP.getReserves();
+        (uint112 reserves0, uint112 reserves1, , ) = wantShortLP.getReserves();
         if (wantShortLP.token0() == address(want)) {
             _wantInLp = uint256(reserves0);
             _shortInLp = uint256(reserves1);
@@ -985,6 +985,8 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
         returns (uint256 slippageWant)
     {
         uint256 amountOutMin = convertWantToShortLP(_amount);
+        uint256 shortBalanceBefore = short.balanceOf(address(this));
+
         router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amount,
             amountOutMin.mul(slippageAdj).div(BASIS_PRECISION),
@@ -993,11 +995,9 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
             address(this),
             now
         );
-        /*
-        slippageWant = convertShortToWantLP(
-            amountOutMin.sub(amounts[amounts.length - 1])
-        );
-        */
+        uint256 amountOut = short.balanceOf(address(this)) - shortBalanceBefore;
+        slippageWant = convertShortToWantLP(amountOutMin - amountOut);
+
     }
 
     /**
@@ -1014,6 +1014,8 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
         returns (uint256 _amountWant, uint256 _slippageWant)
     {
         _amountWant = convertShortToWantLP(_amountShort);
+        uint256 wantBalanceBefore = want.balanceOf(address(this));
+
         router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amountShort,
             _amountWant.mul(slippageAdj).div(BASIS_PRECISION),
@@ -1022,7 +1024,9 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
             address(this),
             now
         );
-        //_slippageWant = _amountWant.sub(amounts[amounts.length - 1]);
+        uint256 _amountWantOut = want.balanceOf(address(this)) - wantBalanceBefore;
+        _slippageWant = _amountWant - _amountWantOut;
+
     }
 
     function _swapWantShortExact(uint256 _amountOut)
@@ -1030,16 +1034,47 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
         returns (uint256 _slippageWant)
     {
         uint256 amountInWant = convertShortToWantLP(_amountOut);
-        uint256 amountInMax =
-            (amountInWant.mul(BASIS_PRECISION).div(slippageAdj)).add(10); // add 1 to make up for rounding down
+        uint256 amountInExactWant = getAmountIn(_amountOut);
+
+        // Sub Optimal implementation given camelot does not have SwapTokensForExactTokens
         router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountInExactWant,
             _amountOut,
-            amountInMax,
-            getTokenOutPath(address(want), address(short)),
+            getTokenOutPath(address(want), address(short)), // _pathWantToShort(),
             address(this),
             address(this),
-            now
+            block.timestamp
         );
-        //_slippageWant = amounts[0].sub(amountInWant);
+        
+        _slippageWant = amountInExactWant - amountInWant;
+    }
+
+    function getLpReservesAndFee() public view returns (uint256 _wantInLp, uint256 _shortInLp, uint256 _wantFeePercent, uint256 _shortFeePercent) {
+        (uint112 reserves0, uint112 reserves1, uint32 fee0, uint32 fee1) = wantShortLP.getReserves();
+        
+        if (wantShortLP.token0() == address(want)){
+            _wantInLp = uint256(reserves0);
+            _shortInLp = uint256(reserves1);
+            _wantFeePercent = uint256(fee0);
+            _shortFeePercent = uint256(fee1);
+        } else {
+            _wantInLp = uint256(reserves1);
+            _shortInLp = uint256(reserves0);
+            _wantFeePercent = uint256(fee1);
+            _shortFeePercent = uint256(fee0);
+        }
+    }
+
+
+    function getAmountIn(uint256 amountOut) internal returns (uint256 amountIn) {
+        require(amountOut > 0, "insufficient output amount");
+        (uint256 reserveIn, uint256 reserveOut, uint256 reserveInFee,) = getLpReservesAndFee();
+        require(reserveIn > 0 && reserveOut > 0, "insufficient liquidity");
+
+        uint256 FEE_DENOMINATOR = 100000;
+
+        uint256 numerator = reserveIn.mul(amountOut).mul(FEE_DENOMINATOR);
+        uint256 denominator = reserveOut.sub(amountOut).mul(FEE_DENOMINATOR - reserveInFee);
+        amountIn = (numerator / denominator).add(1);
     }
 }
