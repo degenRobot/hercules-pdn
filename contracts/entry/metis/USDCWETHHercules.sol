@@ -93,10 +93,11 @@ contract USDCWETHHercules is CoreStrategyAave {
 
 
         if (torchBalance > 0) {
-            router.swapExactTokensForTokens(
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
                 torchBalance,
                 0,
                 getTokenOutPath(address(torch), address(want)),
+                address(this),
                 address(this),
                 now
             );

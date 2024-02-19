@@ -23,6 +23,8 @@ import "./interfaces/farm.sol";
 import "./interfaces/uniswap.sol";
 import {IStrategyInsurance} from "./StrategyInsurance.sol";
 import {BaseStrategyRedux} from "./BaseStrategyRedux.sol";
+import {ICamelotRouter} from "./interfaces/camelot/ICamelotRouter.sol";
+
 
 struct CoreStrategyAaveConfig {
     // A portion of want token is depoisited into a lending platform to be used as
@@ -101,7 +103,7 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
     IERC20 farmToken;
     // Contract Interfaces
     address farmMasterChef; //Since it is usually custom, will leave it as an address
-    IUniswapV2Router01 router;
+    ICamelotRouter router;
     IStrategyInsurance public insurance;
     IPool pool;
     IAToken aToken;
@@ -134,7 +136,7 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
 
         // initialise other interfaces
         farmMasterChef = _config.farmMasterChef;
-        router = IUniswapV2Router01(_config.router);
+        router = ICamelotRouter(_config.router);
 
         IPoolAddressesProvider provider =
             IPoolAddressesProvider(_config.poolAddressesProvider);
@@ -960,10 +962,11 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
     function _sellHarvestWant() internal virtual {
         uint256 harvestBalance = farmToken.balanceOf(address(this));
         if (harvestBalance == 0) return;
-        router.swapExactTokensForTokens(
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             harvestBalance,
             0,
             getTokenOutPath(address(farmToken), address(want)),
+            address(this),
             address(this),
             now
         );
@@ -982,17 +985,19 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
         returns (uint256 slippageWant)
     {
         uint256 amountOutMin = convertWantToShortLP(_amount);
-        uint256[] memory amounts =
-            router.swapExactTokensForTokens(
-                _amount,
-                amountOutMin.mul(slippageAdj).div(BASIS_PRECISION),
-                getTokenOutPath(address(want), address(short)), // _pathWantToShort(),
-                address(this),
-                now
-            );
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            _amount,
+            amountOutMin.mul(slippageAdj).div(BASIS_PRECISION),
+            getTokenOutPath(address(want), address(short)), // _pathWantToShort(),
+            address(this),
+            address(this),
+            now
+        );
+        /*
         slippageWant = convertShortToWantLP(
             amountOutMin.sub(amounts[amounts.length - 1])
         );
+        */
     }
 
     /**
@@ -1009,15 +1014,15 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
         returns (uint256 _amountWant, uint256 _slippageWant)
     {
         _amountWant = convertShortToWantLP(_amountShort);
-        uint256[] memory amounts =
-            router.swapExactTokensForTokens(
-                _amountShort,
-                _amountWant.mul(slippageAdj).div(BASIS_PRECISION),
-                getTokenOutPath(address(short), address(want)),
-                address(this),
-                now
-            );
-        _slippageWant = _amountWant.sub(amounts[amounts.length - 1]);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            _amountShort,
+            _amountWant.mul(slippageAdj).div(BASIS_PRECISION),
+            getTokenOutPath(address(short), address(want)),
+            address(this),
+            address(this),
+            now
+        );
+        //_slippageWant = _amountWant.sub(amounts[amounts.length - 1]);
     }
 
     function _swapWantShortExact(uint256 _amountOut)
@@ -1027,14 +1032,14 @@ abstract contract CoreStrategyAave is BaseStrategyRedux {
         uint256 amountInWant = convertShortToWantLP(_amountOut);
         uint256 amountInMax =
             (amountInWant.mul(BASIS_PRECISION).div(slippageAdj)).add(10); // add 1 to make up for rounding down
-        uint256[] memory amounts =
-            router.swapTokensForExactTokens(
-                _amountOut,
-                amountInMax,
-                getTokenOutPath(address(want), address(short)),
-                address(this),
-                now
-            );
-        _slippageWant = amounts[0].sub(amountInWant);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            _amountOut,
+            amountInMax,
+            getTokenOutPath(address(want), address(short)),
+            address(this),
+            address(this),
+            now
+        );
+        //_slippageWant = amounts[0].sub(amountInWant);
     }
 }
