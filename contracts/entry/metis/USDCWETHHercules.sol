@@ -22,6 +22,9 @@ contract USDCWETHHercules is CoreStrategyHercules {
     using SafeERC20 for IERC20;
 
     IERC20 torch;
+    IERC20 metis;
+
+    // xMetis ??? (how do we want to handle this )
 
     constructor(address _vault)
         public
@@ -34,9 +37,9 @@ contract USDCWETHHercules is CoreStrategyHercules {
                 0xf28164A485B0B2C90639E47b0f377b4a438a16B1, // farmToken -> TORCH
                 0x019ba0325f1988213D448b3472fA1cf8D07618d7, // farmTokenLp -> TORCH/WETH
                 0xbB703E95348424FF9e94fbE4FB524f6d280331B8, // farmMasterChef -> IStakingReward
-                0x625E7708f30cA75bfd92586e17077590C60eb4cD, // aToken
-                0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351, // variableDebtTOken
-                0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb, // PoolAddressesProvider
+                0x885c8aec5867571582545f894a5906971db9bf27, // aToken
+                0x8Bb19e3DD277a73D4A95EE434F14cE4B92898421, // variableDebtTOken
+                0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF, // PoolAddressesProvider
                 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff, // router
                 1e4 //mindeploy
             )
@@ -44,7 +47,7 @@ contract USDCWETHHercules is CoreStrategyHercules {
     {}
 
     function _setup() internal override {
-        weth = router.WETH(); // this is wMatic on quickswap 
+        weth = router.WETH(); 
         torch = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
         yieldBooster = address(0);
         torchPool = ITorchPool(address(0));
@@ -81,15 +84,9 @@ contract USDCWETHHercules is CoreStrategyHercules {
 
 
     function _sellHarvestWant() internal override {
-        uint256 harvestBalance = farmToken.balanceOf(address(this));
-
-        /*
-        if (dragonLair.balanceOf(address(this)) > 0) {
-            dragonLair.leave(harvestBalance);
-        }
-`       */
+        //uint256 harvestBalance = farmToken.balanceOf(address(this));
         uint256 torchBalance = torch.balanceOf(address(this));
-
+        uint256 metisBalance = metis.balanceOf(address(this));
 
         if (torchBalance > 0) {
             router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
@@ -100,6 +97,17 @@ contract USDCWETHHercules is CoreStrategyHercules {
                 address(this),
                 now
             );
+        }
+
+        if (metisBalance > 0 ) {
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+                metisBalance,
+                0,
+                getTokenOutPath(address(metis), address(want)),
+                address(this),
+                address(this),
+                now
+            );            
         }
         
     }

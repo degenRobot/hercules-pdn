@@ -9,6 +9,7 @@ import {ITorchPool} from "./interfaces/camelot/ITorchPool.sol";
 import {IXTorch} from "./interfaces/camelot/IXTorch.sol";
 import {INFTHandler} from "./interfaces/camelot/INFTHandler.sol";
 
+// NOTE : Potentially better to have this as seperate upgradeable contract -> i.e. if want to upgrade how we handle X Torch etc 
 abstract contract CoreStrategyHercules is CoreStrategyAave, INFTHandler {
 
     uint256 public tokenId;
@@ -17,6 +18,7 @@ abstract contract CoreStrategyHercules is CoreStrategyAave, INFTHandler {
     ITorchPool public torchPool;
     IXTorch public xTorch;
 
+    // Based on Neutra Camelot Strategy -> TO Confirm with Narumi 
     bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
 
 
