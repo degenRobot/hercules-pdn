@@ -37,7 +37,7 @@ contract USDCWETHHercules is CoreStrategyHercules {
                 0xf28164A485B0B2C90639E47b0f377b4a438a16B1, // farmToken -> TORCH
                 0x019ba0325f1988213D448b3472fA1cf8D07618d7, // farmTokenLp -> TORCH/WETH
                 0xbB703E95348424FF9e94fbE4FB524f6d280331B8, // farmMasterChef -> IStakingReward
-                0x885c8aec5867571582545f894a5906971db9bf27, // aToken
+                0x885C8AEC5867571582545F894A5906971dB9bf27, // aToken
                 0x8Bb19e3DD277a73D4A95EE434F14cE4B92898421, // variableDebtTOken
                 0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF, // PoolAddressesProvider
                 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff, // router
