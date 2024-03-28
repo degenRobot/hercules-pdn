@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0
 // Feel free to change the license, but this is what we use
-pragma solidity ^0.6.00;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 // https://polygonscan.com/address/0xf5b509bb0909a69b1c207e495f687a596c168e12#code

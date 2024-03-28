@@ -467,11 +467,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
             return;
         }
 
-        (uint256 _lendNeeded, uint256 _borrowAmt) = _calcDeployment(_amount);
-        _redeemWant(balanceLend().sub(_lendNeeded));
-        _borrow(_borrowAmt);
-        _addToLP(balanceShort());
-        _depositLp();
+        _deploy(_amount);
     }
 
     function rebalanceCollateral() external onlyKeepers {
@@ -741,9 +737,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
         return aToken.balanceOf(address(this));
     }
 
-    // Strategy specific
-    function countLpPooled() internal view virtual returns (uint256);
-
     // lend want tokens to lending platform
     function _lendWant(uint256 amount) internal {
         pool.supply(address(want), amount, address(this), 0);
@@ -855,11 +848,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
         farmMasterChef.deposit(pid, gammaVault.balanceOf(address(this)), address(this));
     }
 
-    // Farm-specific methods
-    function _depositLp() internal virtual;
-
-    function _withdrawFarm(uint256 _amount) internal virtual;
-
     function _withdrawLp(uint256 _stratPercent) internal {
         (uint256 _farmBalance, ) = farmMasterChef.userInfo(pid, address(this));        
         uint256 _lpTokens = gammaVault.balanceOf(address(this));
@@ -873,10 +861,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
         gammaVault.withdraw(_lpOut, address(this), address(this), _minAmounts);
     }    
 
-    function _withdrawAllPooled() internal {
-        uint256 lpPooled = countLpPooled();
-        _withdrawFarm(lpPooled);
-    }
 
     function _swapExactWantShort(uint256 _amount)
         internal
