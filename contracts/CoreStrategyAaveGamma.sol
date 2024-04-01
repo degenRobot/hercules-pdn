@@ -134,8 +134,8 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
         public
         BaseStrategyRedux(_vault)
     {
-        weth = 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619;
-        short = IERC20(0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619);
+        weth = 0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481;
+        short = IERC20(0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481);
         wantDecimals = 6;
         shortDecimals = 18;
         _setInterfaces();
@@ -145,20 +145,22 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
 
     function _setInterfaces() internal {
         farmToken = IERC20(0xf28164A485B0B2C90639E47b0f377b4a438a16B1);
-        IPoolAddressesProvider provider = IPoolAddressesProvider(0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb);
-        pool = IPool(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
+        IPoolAddressesProvider provider = IPoolAddressesProvider(0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF);
+        pool = IPool(0x90df02551bB792286e8D4f13E0e357b4Bf1D6a57);
         oracle = IAaveOracle(provider.getPriceOracle());
-        aToken = IAToken(0x625E7708f30cA75bfd92586e17077590C60eb4cD);
-        debtToken = IVariableDebtToken(0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351);  
+        aToken = IAToken(0x885C8AEC5867571582545F894A5906971dB9bf27);
+        debtToken = IVariableDebtToken(0x0110174183e13D5Ea59D7512226c5D5A47bA2c40);  
 
         v2Router = IUniswapV2Router01(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
-        router = IRouter(0xf5b509bB0909a69B1c207E495f687a596C168E12);
-        gammaVault = IGammaVault(0x3Cc20A6795c4b57d9817399F68E83e71C8626580);
-        depositPoint = IUniProxy(0xA42d55074869491D60Ac05490376B74cF19B00e6);
-        quickswapPool = IAlgebraPool(0x55CAaBB0d2b704FD0eF8192A7E35D8837e678207);  
-        clearance = IClearance(0x676644bB8ae1B48BE85b233b82E84Eb74Fa081a8);
+        router = IRouter(0xBde5839EC36Db2aC492b79e9E3B75e15FA8A59ec);
+        // TO Double check this (flow seems to create NFT position as opposed to Gamma Vault position ???)
+        
+        gammaVault = IGammaVault(0xa6b3cea9E3D4b6f1BC5FA3fb1ec7d55A578473Ad);
+        depositPoint = IUniProxy(0xD882a7AD21a6432B806622Ba5323716Fba5241A8);
+        quickswapPool = IAlgebraPool(0xa6b3cea9E3D4b6f1BC5FA3fb1ec7d55A578473Ad);  
+        clearance = IClearance(0xd359e08A60E2dDBFa1fc276eC11Ce7026642Ae71);
 
-        farmMasterChef = IMasterchef(0x20ec0d06F447d550fC6edee42121bc8C1817b97D);
+        //farmMasterChef = IMasterchef();
 
 
     }
@@ -804,7 +806,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
     }
 
     function _getMaxValues() public view returns(uint256 deposit0Max, uint256 deposit1Max) {
-        address clearanceAddress = 0x676644bB8ae1B48BE85b233b82E84Eb74Fa081a8;
+        address clearanceAddress = 0xd359e08A60E2dDBFa1fc276eC11Ce7026642Ae71;
         bytes memory data = abi.encodeWithSelector(IClearance.positions.selector, address(gammaVault));
 
         (bool success, bytes memory returnData) = clearanceAddress.staticcall(data);
