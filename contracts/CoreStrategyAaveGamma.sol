@@ -127,7 +127,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
     IGammaVault public gammaVault;
     IUniProxy public depositPoint;
     IMasterchef public farmMasterChef;
-    IAlgebraPool public quickswapPool;
+    IAlgebraPool public herculesPool;
     IClearance public clearance;
 
     constructor(address _vault)
@@ -152,12 +152,12 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
         debtToken = IVariableDebtToken(0x0110174183e13D5Ea59D7512226c5D5A47bA2c40);  
 
         v2Router = IUniswapV2Router01(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
-        router = IRouter(0xBde5839EC36Db2aC492b79e9E3B75e15FA8A59ec);
+        //router = IRouter(0xBde5839EC36Db2aC492b79e9E3B75e15FA8A59ec);
         // TO Double check this (flow seems to create NFT position as opposed to Gamma Vault position ???)
         
         gammaVault = IGammaVault(0xa6b3cea9E3D4b6f1BC5FA3fb1ec7d55A578473Ad);
         depositPoint = IUniProxy(0xD882a7AD21a6432B806622Ba5323716Fba5241A8);
-        quickswapPool = IAlgebraPool(0xa6b3cea9E3D4b6f1BC5FA3fb1ec7d55A578473Ad);  
+        herculesPool = IAlgebraPool(0xA4E4949e0cccd8282f30e7E113D8A551A1eD1aeb);  
         clearance = IClearance(0xd359e08A60E2dDBFa1fc276eC11Ce7026642Ae71);
 
         //farmMasterChef = IMasterchef();
@@ -167,17 +167,20 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
 
     function _approveContracts() internal {
         want.approve(address(pool), type(uint256).max);        
-        want.approve(address(gammaVault), type(uint256).max);        
         IERC20(address(short)).approve(address(pool), type(uint256).max);   
+
+        want.approve(address(gammaVault), type(uint256).max);        
         IERC20(address(short)).approve(address(gammaVault), type(uint256).max);   
-        IERC20(address(gammaVault)).approve(address(farmMasterChef), type(uint256).max);     
-        IERC20(address(farmToken)).approve(address(router), type(uint256).max);
-        IERC20(address(farmToken)).approve(address(v2Router), type(uint256).max);
 
-        want.approve(address(router), type(uint256).max);        
-        IERC20(address(short)).approve(address(router), type(uint256).max);   
+        want.approve(address(depositPoint), type(uint256).max);        
+        IERC20(address(short)).approve(address(depositPoint), type(uint256).max);   
 
 
+        //IERC20(address(gammaVault)).approve(address(farmMasterChef), type(uint256).max);     
+        //IERC20(address(farmToken)).approve(address(router), type(uint256).max);
+        //IERC20(address(farmToken)).approve(address(v2Router), type(uint256).max);
+        //want.approve(address(router), type(uint256).max);        
+        //IERC20(address(short)).approve(address(router), type(uint256).max);   
     }
 
     function _setup() internal virtual {}
@@ -375,9 +378,9 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
     }
 
     function getLpPrice() public view returns (uint256) {
-        (uint160 currentPrice, , , , , , ) = quickswapPool.globalState(); 
+        (uint160 currentPrice, , , , , , ) = herculesPool.globalState(); 
         uint256 price;
-        if (quickswapPool.token0() == address(want)) { 
+        if (herculesPool.token0() == address(want)) { 
             price = ((2 ** 96) * (2 ** 96)) * 1e18 / (uint256(currentPrice) * uint256(currentPrice));
         } else {
             price = 1e18 * uint256(currentPrice) * uint256(currentPrice) / ((2 ** 96) * (2 ** 96));
@@ -607,7 +610,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
 
     function calcDebtRatio() public view returns (uint256) {
         uint256 totalShort;
-        if (quickswapPool.token0() == address(want)) {
+        if (herculesPool.token0() == address(want)) {
             (, totalShort) = gammaVault.getTotalAmounts();
         } else {
              (totalShort, ) = gammaVault.getTotalAmounts();           
@@ -682,7 +685,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
     function balanceLp() public view returns (uint256) {
         uint256 totalWant; 
         uint256 totalShort;
-        if (quickswapPool.token0() == address(want)) {
+        if (herculesPool.token0() == address(want)) {
             (totalWant, totalShort) = gammaVault.getTotalAmounts();
         } else {
              (totalShort, totalWant) = gammaVault.getTotalAmounts();           
@@ -769,7 +772,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
     function getPoolWeightWant() public view returns(uint256) {
         uint256 totalWant; 
         uint256 totalShort;
-        if (quickswapPool.token0() == address(want)) {
+        if (herculesPool.token0() == address(want)) {
             (totalWant, totalShort) = gammaVault.getTotalAmounts();
         } else {
              (totalShort, totalWant) = gammaVault.getTotalAmounts();           
@@ -782,7 +785,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
     function _getAmountsIn(uint256 _amountShort) internal view returns (uint256 _amount0, uint256 _amount1) {
         uint256 totalWant; 
         uint256 totalShort;
-        if (quickswapPool.token0() == address(want)) {
+        if (herculesPool.token0() == address(want)) {
             (totalWant, totalShort) = gammaVault.getTotalAmounts();
         } else {
              (totalShort, totalWant) = gammaVault.getTotalAmounts();           
@@ -795,7 +798,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
             _amountShort = balWant * totalShort / totalWant;
         } 
 
-        if (quickswapPool.token0() == address(want)) {
+        if (herculesPool.token0() == address(want)) {
             _amount0 = _amountWant;
             _amount1 = _amountShort;
         } else {

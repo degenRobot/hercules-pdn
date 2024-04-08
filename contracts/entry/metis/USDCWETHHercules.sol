@@ -42,11 +42,11 @@ contract USDCWETHHercules is CoreStrategyAaveGamma {
     {}
 
     function _setup() internal override {
-        torch = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
+        //torch = IERC20(0x831753DD7087CaC61aB5644b308642cc1c33Dc13);
         yieldBooster = address(0);
         torchPool = ITorchPool(address(0));
         xTorch = IXTorch(address(0));
-        torch.safeApprove(address(router), uint256(-1));
+        //torch.safeApprove(address(router), uint256(-1));
     }
 
     function balancePendingHarvest() public view override returns (uint256) {
