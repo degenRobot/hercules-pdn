@@ -100,7 +100,7 @@ def shortWhale(token, conf ,Contract, accounts) :
 def amount(accounts, token, user, conf, whale):
     amount = 10_000 * 10 ** token.decimals()
     amount = min(amount, int(0.5*token.balanceOf(whale)))
-    amount = min(amount, int(0.005*token.balanceOf(conf['lp_token'])))
+    #amount = min(amount, int(0.005*token.balanceOf(conf['lp_token'])))
 
     # In order to get some funds for the token you are about to use,
     # it impersonate an exchange address to use it's funds.

@@ -378,19 +378,25 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
     }
 
     function getLpPrice() public view returns (uint256) {
-        (uint160 currentPrice, , , , , , ) = herculesPool.globalState(); 
+        (uint160 currentPrice, , , , , , , ) = herculesPool.globalState();
         uint256 price;
-        if (herculesPool.token0() == address(want)) { 
-            price = ((2 ** 96) * (2 ** 96)) * 1e18 / (uint256(currentPrice) * uint256(currentPrice));
+
+        uint256 const = 79228162514264337593543950336;
+
+        if (herculesPool.token0() == address(want)) {
+            // Using SafeMath for multiplication and division
+            price = (const).mul(const).mul(1e18).div(uint256(currentPrice).mul(uint256(currentPrice)));
         } else {
-            price = 1e18 * uint256(currentPrice) * uint256(currentPrice) / ((2 ** 96) * (2 ** 96));
+            price = uint256(1e18).mul(uint256(currentPrice)).mul(uint256(currentPrice)).div(const.mul(const));
         }
-        
+
         return price;
     }
 
     function getOraclePrice() public view returns (uint256) {
-        uint256 shortOPrice = oracle.getAssetPrice(address(short));
+    
+
+        uint256 shortOPrice = oracle.getAssetPrice(0xDeadDeAddeAddEAddeadDEaDDEAdDeaDDeAD0000);
         uint256 wantOPrice = oracle.getAssetPrice(address(want));
         return
             shortOPrice.mul(10**(wantDecimals.add(18).sub(shortDecimals))).div(
@@ -710,7 +716,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
 
     // value of borrowed tokens in value of want tokens
     function balanceDebt() public view returns (uint256) {
-        return _convertShortToWantLP(balanceDebtInShort());
+        return _convertShortToWantOracle(balanceDebtInShort());
     }
 
     /**
