@@ -24,7 +24,7 @@ Alice can then redeem those shares using `Vault.withdrawAll()` for the correspon
 
 ## Installation and Setup
 
-1. [Install Brownie](https://eth-brownie.readthedocs.io/en/stable/install.html) & [Ganache-CLI](https://github.com/trufflesuite/ganache-cli), if you haven't already.
+1. [Install Brownie](https://eth-brownie.readthedocs.io/en/stable/install.html) & [Ganache](https://github.com/trufflesuite/ganache), if you haven't already. Make sure that the version of Ganache that you install is compatible with Brownie. You can check Brownie's Ganache dependency [here](https://eth-brownie.readthedocs.io/en/stable/install.html#dependencies).
 
 2. Sign up for [Infura](https://infura.io/) and generate an API key. Store it in the `WEB3_INFURA_PROJECT_ID` environment variable.
 
@@ -59,12 +59,25 @@ To deploy the demo Yearn Strategy in a development environment:
 $ brownie console
 ```
 
-2. Create variables for the Yearn Vault and Want Token addresses. These were obtained from the Yearn Registry. Also, loan the Yearn governance multisig.
+2. Create variables for the Yearn Vault and Want Token addresses. These were obtained from the Yearn Registry. We load them from a different repository found in the brownie-config.yml under dependencies (yearn/yearn-vaults@0.4.3):
 
 ```python
->>> vault = Vault.at("0xBFa4D8AA6d8a379aBFe7793399D3DdaCC5bBECBB")  # yvDAI (v0.2.2)
->>> token = Token.at("0x6b175474e89094c44da98b954eedeac495271d0f")  # DAI
->>> gov = "ychad.eth"  # ENS for Yearn Governance Multisig
+from brownie import project
+yearnvaults = project.load(config["dependencies"][0]) #load the base vaults project to access the original Vault contract
+Vault = yearnvaults.Vault
+Token = yearnvaults.Token
+vault = Vault.at("0xdA816459F1AB5631232FE5e97a05BBBb94970c95")
+token = Token.at("0x6b175474e89094c44da98b954eedeac495271d0f")
+gov = "ychad.eth"  # ENS for Yearn Governance Multisig
+```
+
+or you can get the contracts ABI from etherscan API, make sure you have exported your etherscan token.
+
+```
+from brownie import Contract
+vault = Contract("0xdA816459F1AB5631232FE5e97a05BBBb94970c95")
+token = Contract("0x6b175474e89094c44da98b954eedeac495271d0f")
+gov = "ychad.eth"  # ENS for Yearn Governance Multisig
 ```
 
 3. Deploy the [`Strategy.sol`](contracts/Strategy.sol) contract.
@@ -80,12 +93,15 @@ Transaction sent: 0xc8a35b3ecbbed196a344ed6b5c7ee6f50faf9b7eee836044d1c7ffe10093
 4. Approve the strategy for the Vault. We must do this because we only approved Strategies can pull funding from the Vault.
 
 ```python
-# 1000 DAI debt limit, no rate limit, 50 bps strategist fee
->>> vault.addStrategy(strategy, Wei("1000 ether"), 2 ** 256 - 1, 50, {"from": gov})
+# 10% of the vault tokens will be allocated to the strategy
+
+>>> vault.addStrategy(strategy, 1000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
 Transaction sent: 0xa70b90eb9a9899e8f6e709c53a436976315b4279c4b6797d0a293e169f94d5b4
   Gas price: 0.0 gwei   Gas limit: 6721975
   Transaction confirmed - Block: 9995379   Gas used: 21055 (0.31%)
 ```
+
+If you are getting a revert error, it's most likley because the vault can't add more strategies, you can check the `vault.debtRatio()` the value should be under 10,000. You can try to lower one of the existing strategy debt ratio `vault.updateStrategyDebtRatio("0x1676055fE954EE6fc388F9096210E5EbE0A9070c", 0, {"from": gov})`
 
 5. Now we are ready to put our strategy into action!
 
@@ -175,14 +191,3 @@ If you are using Ganache to fork a network, then you may have issues with the bl
 
 - Yearn [Discord channel](https://discord.com/invite/6PNv2nF/)
 - Brownie [Gitter channel](https://gitter.im/eth-brownie/community)
-
-
-# Change Log
-
-## StrategyHedgedFarming V2.3
-
-Modifying insurance logic to payout and report the insurance claim during the same harvest the loss is reported
-
-## StrategyHedgedFarming V2.4
-
-Adding price offset test to collateral rebalance.

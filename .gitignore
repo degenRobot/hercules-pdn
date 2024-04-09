@@ -4,27 +4,8 @@ __pycache__
 .hypothesis/
 build/
 reports/
-build/
-venv/
 .env
+venv/
 
 # Node/npm
 node_modules/
-
-flat.sol
-.pytest_cache/v/cache/lastfailed
-.pytest_cache/v/cache/lastfailed
-.pytest_cache/v/cache/nodeids
-.pytest_cache/v/cache/lastfailed
-.pytest_cache/v/cache/nodeids
-.pytest_cache/v/cache/lastfailed
-.pytest_cache/v/cache/lastfailed
-.pytest_cache/v/cache/nodeids
-.pytest_cache/v/cache/nodeids
-.pytest_cache/v/cache/lastfailed
-.pytest_cache/v/cache/nodeids
-.pytest_cache/v/cache/lastfailed
-.pytest_cache/v/cache/nodeids
-.pytest_cache/v/cache/lastfailed
-
-.pytest_cache/
