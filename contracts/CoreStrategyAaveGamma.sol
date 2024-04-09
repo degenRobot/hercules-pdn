@@ -151,7 +151,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategyRedux {
         aToken = IAToken(0x885C8AEC5867571582545F894A5906971dB9bf27);
         debtToken = IVariableDebtToken(0x0110174183e13D5Ea59D7512226c5D5A47bA2c40);  
 
-        v2Router = IUniswapV2Router01(0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff);
+        v2Router = IUniswapV2Router01(0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C);
         //router = IRouter(0xBde5839EC36Db2aC492b79e9E3B75e15FA8A59ec);
         // TO Double check this (flow seems to create NFT position as opposed to Gamma Vault position ???)
         
