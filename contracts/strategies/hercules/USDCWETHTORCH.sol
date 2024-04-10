@@ -43,7 +43,7 @@ contract USDCWETHTORCH is CoreStrategyAaveTorch {
     {}
 
     function _setup() internal override {
-        weth = router.WETH();
+        weth = 0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481;
     }
 
     function balancePendingHarvest() public view override returns (uint256) {

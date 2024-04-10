@@ -27,12 +27,13 @@ def offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct,
 
     WHALEHAGOOOO = '0xaa30D6bba6285d0585722e2440Ff89E23EF68864'
 
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
+    #short = Contract(strategy_mock_oracle.short())
     swapAmtMax = short.balanceOf(lp_token)*swapPct
     swapAmt = min(swapAmtMax, short.balanceOf(shortWhale))
     print("Force Large Swap - to offset debt ratios")
     short.approve(router, 2**256-1, {"from": shortWhale})
-    if router.address == '0xc873fEcbd354f5A56E00E710B90EF4201db2448d' :
+    if router.address == '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C' :
         camelotRouter = interface.ICamelotRouter(router.address)
         camelotRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(swapAmt, 0, [short, token], shortWhale, '0x0000000000000000000000000000000000000000' , 2**256-1, {"from": shortWhale})
 
@@ -43,12 +44,12 @@ def offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct,
     
 
 def offSetDebtRatioHigh(strategy_mock_oracle, lp_token, token, Contract, swapPct, router, whale):
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
     swapAmtMax = token.balanceOf(lp_token)*swapPct
     swapAmt = min(swapAmtMax, token.balanceOf(whale))
     print("Force Large Swap - to offset debt ratios")
     token.approve(router, 2**256-1, {"from": whale})
-    if router.address == '0xc873fEcbd354f5A56E00E710B90EF4201db2448d' :
+    if router.address == '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C' :
         camelotRouter = interface.ICamelotRouter(router.address)
         camelotRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(swapAmt, 0, [token, short], whale, '0x0000000000000000000000000000000000000000' , 2**256-1, {"from": whale})
     else :
@@ -63,7 +64,7 @@ def offSetDebtRatioLowAmtIn(strategy_mock_oracle, lp_token, token, Contract, swa
     swapAmt = min(swapAmtMax, short.balanceOf(shortWhale))
     print("Force Large Swap - to offset debt ratios")
     short.approve(router, 2**256-1, {"from": shortWhale})
-    if router.address == '0xc873fEcbd354f5A56E00E710B90EF4201db2448d' :
+    if router.address == '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C' :
         camelotRouter = interface.ICamelotRouter(router.address)
         camelotRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(swapAmt, 0, [short, token], shortWhale, '0x0000000000000000000000000000000000000000' , 2**256-1, {"from": shortWhale})
 
@@ -78,7 +79,7 @@ def offSetDebtRatioHighAmtIn(strategy_mock_oracle, lp_token, token, Contract, sw
     swapAmt = min(swapAmtMax, token.balanceOf(whale))
     print("Force Large Swap - to offset debt ratios")
     token.approve(router, 2**256-1, {"from": whale})
-    if router.address == '0xc873fEcbd354f5A56E00E710B90EF4201db2448d' :
+    if router.address == '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C' :
         camelotRouter = interface.ICamelotRouter(router.address)
         camelotRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(swapAmt, 0, [token, short], whale, '0x0000000000000000000000000000000000000000' , 2**256-1, {"from": whale})
     else :

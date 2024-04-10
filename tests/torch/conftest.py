@@ -30,9 +30,9 @@ CONFIG = {
         'harvest_token': TORCH,
         'harvest_token_price': TORCH_PRICE * 1e-12, #note adjust by 1e-12 due to dif in decimals between USDC & GRAIL token i.e. 6 vs 18 
         'harvest_token_whale': '0x5A5A7C0108CEf44549b7782495b1Df2Ad5294Da3',
-        'lp_token': '0x84652bb2539513baf36e225c930fdd8eaa63ce27',
-        'lp_whale': '0x5422AA06a38fd9875fc2501380b40659fEebD3bB',
-        'lp_farm': '0x6BC938abA940fB828D39Daa23A94dfc522120C11',
+        'lp_token': '0x4C10a0E5fc4a6eDe720dEcdAD99B281076EAC0fA',
+        'lp_whale': '0x3E5F2622F66f916Ba79cb12B40CB29727bb2130E',
+        'lp_farm': '0xE67348414A5Ab2c065FA2b422144A6c5C925cEfF',
         'pid': 0,
         'router': TORCH_ROUTER,
     },
@@ -185,15 +185,14 @@ def grailManager(grail_manager_proxy_contract, strategy_before_set, grail_manage
     yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
     xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
     
-    grailManager = gov.deploy(grail_manager_contract)
+    #grailManager = gov.deploy(grail_manager_contract)
 
     # grailManager.initialize(gov, strategy, grailConfig, {'from': gov})
-    grailConfig = [strategy_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
-
-    encoded_initializer_function = encode_function_data(grailManager.initialize, gov, strategy_before_set, grailConfig)
-    
-    grailManagerProxy = gov.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
-    yield grailManagerProxy
+    #grailConfig = [strategy_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
+    grailManager = grail_manager_contract.deploy(gov, strategy_before_set, strategy_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
+    #encoded_initializer_function = encode_function_data(grailManager.initialize, gov, strategy_before_set, grailConfig)
+    #grailManagerProxy = gov.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
+    yield grailManager
 
 @pytest.fixture
 def strategy(strategy_before_set, grailManager, gov):

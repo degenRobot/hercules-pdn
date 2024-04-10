@@ -122,7 +122,7 @@ interface INFTPool {
  *  keeper permissions.
  *
  */
-contract TorchManager is INFTHandler, Initializable, UUPSUpgradeable {
+contract TorchManager is INFTHandler {
     using Address for address;
     using SafeMath for uint256;
 
@@ -177,29 +177,35 @@ contract TorchManager is INFTHandler, Initializable, UUPSUpgradeable {
         require(msg.sender == address(strategy));
     }
 
-    function initialize(
+    constructor(
         address _manager,
         address _strategy,
-        GrailManagerConfig memory _config
-    ) external initializer {
+        address _want,
+        address _lp,
+        address _grail,
+        address _xGrail,
+        address _pool,
+        address _router,
+        address _yieldBooster
+    ) {
         setManagerInternal(_manager);
         setStrategyInternal(_strategy);
 
-        want = IERC20(_config.want);
-        lp = IERC20(_config.lp);
-        grail = IERC20(_config.grail);
-        xGrail = IXGrailToken(_config.xGrail);
+        want = IERC20(_want);
+        lp = IERC20(_lp);
+        grail = IERC20(_grail);
+        xGrail = IXGrailToken(_xGrail);
 
-        pool = INFTPool(_config.pool);
-        router = ICamelotRouter(_config.router);
-        yieldBooster = _config.yieldBooster;
+        pool = INFTPool(_pool);
+        router = ICamelotRouter(_router);
+        yieldBooster = _yieldBooster;
 
         lp.approve(address(pool), type(uint256).max);
         grail.approve(address(router), type(uint256).max);
         xGrail.approveUsage(yieldBooster, type(uint256).max);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyManager {}
+    //function _authorizeUpgrade(address newImplementation) internal override onlyManager {}
 
     function setStrategy(address _strategy) external onlyStrategist {
         setStrategyInternal(_strategy);
@@ -235,7 +241,7 @@ contract TorchManager is INFTHandler, Initializable, UUPSUpgradeable {
 
         pool.withdrawFromPosition(tokenId, _amount);
 
-        _swapGrailToWant(balanceOfGrail());
+        //_swapGrailToWant(balanceOfGrail());
 
         if (tokenId != uint256(0)) {
             _stakeXGrail(balanceOfXGrail());
