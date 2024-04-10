@@ -30,13 +30,13 @@ contract USDCWETHTORCH is CoreStrategyAaveTorch {
         CoreStrategyAaveTorch(
             _vault,
             CoreStrategyAaveConfig(
-                0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8, // want -> USDC
-                0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, // short -> WETH
-                0x84652bb2539513BAf36e225c930Fdd8eaa63CE27, // wantShortLP -> USDC/WETH
-                0x625E7708f30cA75bfd92586e17077590C60eb4cD, // aToken
-                0x0c84331e39d6658Cd6e6b9ba04736cC4c4734351, // variableDebtTOken
-                0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb, // PoolAddressesProvider
-                0xc873fEcbd354f5A56E00E710B90EF4201db2448d, // router
+                0xEA32A96608495e54156Ae48931A7c20f0dcc1a21, // want -> USDC
+                0x420000000000000000000000000000000000000A, // short -> WETH
+                0x4C10a0E5fc4a6eDe720dEcdAD99B281076EAC0fA, // wantShortLP -> USDC/WETH
+                0x885C8AEC5867571582545F894A5906971dB9bf27, // aToken
+                0x8Bb19e3DD277a73D4A95EE434F14cE4B92898421, // variableDebtTOken
+                0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF, // PoolAddressesProvider
+                0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C, // router
                 1e4 //mindeploy
             )
         )

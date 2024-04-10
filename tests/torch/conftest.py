@@ -4,59 +4,37 @@ from brownie import Contract
 from brownie import interface, StrategyInsurance, TorchManager, GrailManagerProxy, USDCWETHTORCH ,accounts
 from tests.helper import encode_function_data
 
-DQUICK_PRICE = 159.41
-FTM_PRICE = 1.57
-WETH_PRICE = 3470
-WBTC_PRICE = 46000
-SPOOKY_PRICE = 11.78
-SPIRIT_PRICE = 5.78
-ZIP_PRICE = 0.01
-SUSHI_PRICE = 1.7
-GRAIL = '0x3d9907F9a368ad0a51Be60f7Da3b97cf940982D8'
-GRAIL_PRICE = 3000
-SUSHI_FARM = '0xF4d73326C13a4Fc5FD7A064217e12780e9Bd62c3'
+TORCH = '0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF'
+TORCH_PRICE = 3000
 
-ORACLE = '0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7'
+ORACLE = '0x38D36e85E47eA6ff0d18B0adF12E5fC8984A6f8e'
 
-POOL_ADDRESS_PROVIDER = '0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb'
+POOL_ADDRESS_PROVIDER = '0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF'
 # Tokens
-USDC = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8'
-USDC_WHALE = '0x489ee077994B6658eAfA855C308275EAd8097C4A'
-WETH_WHALE = '0x489ee077994B6658eAfA855C308275EAd8097C4A'
+USDC = '0xEA32A96608495e54156Ae48931A7c20f0dcc1a21'
+USDC_WHALE = '0x555982d2E211745b96736665e19D9308B615F78e'
+WETH_WHALE = '0x555982d2E211745b96736665e19D9308B615F78e'
+WMETIS = '0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481'
+WETH = ''
 SUSHI = '0xd4d42F0b6DEF4CE0383636770eF773390d85c61A'
 
-GRAIL_ROUTER = '0xc873fEcbd354f5A56E00E710B90EF4201db2448d'
+TORCH_ROUTER = '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C'
 
 SUSHISWAP_ROUTER = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506'
 CONFIG = {
-    'USDCWETHSUSHI': {
-        'token': USDC,
-        'whale': USDC_WHALE,
-        'shortWhale' : WETH_WHALE,
-        'deposit': 1e6,
-        'harvest_token': SUSHI,
-        'harvest_token_price': SUSHI_PRICE * 1e-12,
-        'harvest_token_whale': '0x9873795F5DAb11e1c0342C4a58904c59827ede0c',
-        'lp_token': '0x905dfCD5649217c42684f23958568e533C711Aa3',
-        'lp_whale': '0xea2a2AC89281d1673E5018F60933970626905285',
-        'lp_farm': SUSHI_FARM,
-        'pid': 0,
-        'router': SUSHISWAP_ROUTER,
-    },
-
     'USDCWETHTORCH': {
         'token': USDC,
         'whale': USDC_WHALE,
         'shortWhale' : WETH_WHALE,
         'deposit': 1e6,
-        'harvest_token': GRAIL,
-        'harvest_token_price': GRAIL_PRICE * 1e-12, #note adjust by 1e-12 due to dif in decimals between USDC & GRAIL token i.e. 6 vs 18 
+        'harvest_token': TORCH,
+        'harvest_token_price': TORCH_PRICE * 1e-12, #note adjust by 1e-12 due to dif in decimals between USDC & GRAIL token i.e. 6 vs 18 
         'harvest_token_whale': '0x5A5A7C0108CEf44549b7782495b1Df2Ad5294Da3',
         'lp_token': '0x84652bb2539513baf36e225c930fdd8eaa63ce27',
         'lp_whale': '0x5422AA06a38fd9875fc2501380b40659fEebD3bB',
         'lp_farm': '0x6BC938abA940fB828D39Daa23A94dfc522120C11',
         'pid': 0,
-        'router': GRAIL_ROUTER,
+        'router': TORCH_ROUTER,
     },
 
 }
@@ -204,8 +182,8 @@ def strategy_before_set(strategist, keeper, vault, strategy_contract, gov, conf)
 
 @pytest.fixture
 def grailManager(grail_manager_proxy_contract, strategy_before_set, grail_manager_contract, gov, conf) : 
-    yieldBooster = '0xD27c373950E7466C53e5Cd6eE3F70b240dC0B1B1'
-    xGrail = '0x3CAaE25Ee616f2C8E13C74dA0813402eae3F496b'
+    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
+    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
     
     grailManager = gov.deploy(grail_manager_contract)
 
