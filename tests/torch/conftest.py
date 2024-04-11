@@ -4,7 +4,6 @@ from brownie import Contract
 from brownie import interface, StrategyInsurance, TorchManager, GrailManagerProxy, USDCWETHTORCH ,accounts
 from tests.helper import encode_function_data
 
-TORCH = '0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF'
 TORCH_PRICE = 3000
 
 ORACLE = '0x38D36e85E47eA6ff0d18B0adF12E5fC8984A6f8e'
@@ -18,6 +17,7 @@ WMETIS = '0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481'
 WETH = ''
 SUSHI = '0xd4d42F0b6DEF4CE0383636770eF773390d85c61A'
 
+TORCH = '0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF'
 TORCH_ROUTER = '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C'
 
 SUSHISWAP_ROUTER = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506'
@@ -301,8 +301,8 @@ def strategy_mock_oracle_before_set(token, amount, user, strategist, keeper, vau
 
 @pytest.fixture
 def grailManager_mock_oracle(grail_manager_proxy_contract, grail_manager_contract, gov, strategy_mock_oracle_before_set, conf) : 
-    yieldBooster = '0xD27c373950E7466C53e5Cd6eE3F70b240dC0B1B1'
-    xGrail = '0x3CAaE25Ee616f2C8E13C74dA0813402eae3F496b'
+    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
+    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
     
     grailManager = gov.deploy(grail_manager_contract)
 

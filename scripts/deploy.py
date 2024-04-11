@@ -11,9 +11,9 @@ Vault = project.load(
 ).Vault
 
 # edit this to deploy
-from brownie import USDCWETHGRAIL, GrailManager, GrailManagerProxy, CommonHealthCheck
+from brownie import USDCWETHTORCH, TorchManager, GrailManagerProxy, CommonHealthCheck
 
-Strategy = USDCWETHGRAIL
+Strategy = USDCWETHTORCH
 
 def get_address(msg: str, default: str = None) -> str:
     val = click.prompt(msg, default=default)
@@ -41,10 +41,10 @@ def main():
     #vault = Vault.at(get_address("Deployed Vault: "))
     vault = Vault.deploy({'from': dev})
     
-    token = '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8'
+    token = '0xEA32A96608495e54156Ae48931A7c20f0dcc1a21'
     
 
-    vault.initialize(token, dev, dev, "Test Neutra USDC", "tnUSDC", dev, dev)
+    vault.initialize(token, dev, dev, "Test Torch USDC", "hnUSDC", dev, dev)
 
     print(
         f"""
@@ -68,26 +68,31 @@ def main():
     # strategy = Strategy.deploy(vault, {"from": dev}, publish_source=publish_source)
     print('Deploying...')
 
+    TORCH = '0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF'
+    TORCH_ROUTER = '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C'
+
 
     conf = {
-        'lp_token': '0x84652bb2539513baf36e225c930fdd8eaa63ce27',
-        'lp_farm': '0x6BC938abA940fB828D39Daa23A94dfc522120C11',
+        'lp_token': '0x4C10a0E5fc4a6eDe720dEcdAD99B281076EAC0fA',
+        'lp_farm': '0xE67348414A5Ab2c065FA2b422144A6c5C925cEfF',
         'harvest_token' : '0x3d9907F9a368ad0a51Be60f7Da3b97cf940982D8',
         'router' : '0xc873fEcbd354f5A56E00E710B90EF4201db2448d'
+        'router': TORCH_ROUTER,
+        'harvest_token': TORCH,
+
     }
 
     strat = Strategy.deploy(vault,{"from": dev})
-    yieldBooster = '0xD27c373950E7466C53e5Cd6eE3F70b240dC0B1B1'
-    xGrail = '0x3CAaE25Ee616f2C8E13C74dA0813402eae3F496b'
-    grailManager = GrailManager.deploy({'from': dev})
+    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
+    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
 
-    grailConfig = [strat.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
-    grailManager.initialize(dev, strat, grailConfig, {'from': dev})
 
-    encoded_initializer_function = encode_function_data(grailManager.initialize, dev, strat, grailConfig)
+    grailManager = TorchManager.deploy(dev, strat, strat.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': dev})
 
-    grailManagerProxy = GrailManagerProxy.deploy(grailManager.address, encoded_initializer_function, {'from':dev})
-    strat.setGrailManager(grailManagerProxy, {'from':dev})
+    #encoded_initializer_function = encode_function_data(grailManager.initialize, dev, strat, grailConfig)
+
+    #grailManagerProxy = GrailManagerProxy.deploy(grailManager.address, encoded_initializer_function, {'from':dev})
+    strat.setGrailManager(grailManager, {'from':dev})
 
     insurance = StrategyInsurance.deploy(strat, {'from':dev})
     strat.setInsurance(insurance, {'from': dev})  
