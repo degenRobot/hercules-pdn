@@ -9,7 +9,7 @@ POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD'
 want = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' # USDC
 ORACLE = '0xb023e699F5a33916Ea823A16485e259257cA8Bd1'
 
-POOL_ADDRESS_PROVIDER = '0xa97684ead0e402dc232d5a977953df7ecbab3cdb'
+POOL_ADDRESS_PROVIDER = '0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF'
 
 
 
@@ -28,7 +28,7 @@ def offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct,
     WHALEHAGOOOO = '0xaa30D6bba6285d0585722e2440Ff89E23EF68864'
 
     short = interface.IERC20(strategy_mock_oracle.short())
-    #short = Contract(strategy_mock_oracle.short())
+    #short = interface.IERC20(strategy_mock_oracle.short())
     swapAmtMax = short.balanceOf(lp_token)*swapPct
     swapAmt = min(swapAmtMax, short.balanceOf(shortWhale))
     print("Force Large Swap - to offset debt ratios")
@@ -60,7 +60,7 @@ def offSetDebtRatioLowAmtIn(strategy_mock_oracle, lp_token, token, Contract, swa
 
     WHALEHAGOOOO = '0xaa30D6bba6285d0585722e2440Ff89E23EF68864'
 
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
     swapAmt = min(swapAmtMax, short.balanceOf(shortWhale))
     print("Force Large Swap - to offset debt ratios")
     short.approve(router, 2**256-1, {"from": shortWhale})
@@ -75,7 +75,7 @@ def offSetDebtRatioLowAmtIn(strategy_mock_oracle, lp_token, token, Contract, swa
     
 
 def offSetDebtRatioHighAmtIn(strategy_mock_oracle, lp_token, token, Contract, swapAmtMax, router, whale):
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
     swapAmt = min(swapAmtMax, token.balanceOf(whale))
     print("Force Large Swap - to offset debt ratios")
     token.approve(router, 2**256-1, {"from": whale})
@@ -86,7 +86,7 @@ def offSetDebtRatioHighAmtIn(strategy_mock_oracle, lp_token, token, Contract, sw
         router.swapExactTokensForTokens(swapAmt, 0, [token, short], whale, 2**256-1, {"from": whale})
 
 def setOracleShortPriceToLpPrice(strategy_mock_oracle):
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
     # Oracle should reflect the "new" price
     pool_address_provider = interface.IPoolAddressesProvider(POOL_ADDRESS_PROVIDER)
     oracle = MockAaveOracle.at(pool_address_provider.getPriceOracle())
@@ -238,18 +238,12 @@ def test_withdraw_all_from_multiple_strategies(
 
     new_strategy = strategist.deploy(strategy_contract, vault_mock_oracle)
 
-    yieldBooster = '0xD27c373950E7466C53e5Cd6eE3F70b240dC0B1B1'
-    xGrail = '0x3CAaE25Ee616f2C8E13C74dA0813402eae3F496b'
-    grailManager = gov.deploy(grail_manager_contract)
+    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
+    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
 
-    # grailManager.initialize(gov, strategy, grailConfig, {'from': gov})
-    grailConfig = [new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
+    grailManager = grail_manager_contract.deploy(gov, new_strategy, new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
 
-    encoded_initializer_function = encode_function_data(grailManager.initialize, gov, new_strategy, grailConfig)
-    
-    grailManagerProxy = gov.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
-
-    new_strategy.setGrailManager(grailManagerProxy.address, {'from': gov})
+    new_strategy.setGrailManager(grailManager.address, {'from': gov})
 
     newInsurance = strategist.deploy(StrategyInsurance, new_strategy)
     new_strategy.setKeeper(keeper)
@@ -289,7 +283,7 @@ def test_Sandwhich_High(
 
     # do a big swap to offset debt ratio's massively 
     swapPct = 0.7
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
 
     balBeforeWhale = short.balanceOf(whale)
 

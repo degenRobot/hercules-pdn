@@ -10,7 +10,7 @@ def offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct,
 
     WHALEHAGOOOO = '0xaa30D6bba6285d0585722e2440Ff89E23EF68864'
 
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
     swapAmtMax = short.balanceOf(lp_token)*swapPct
     swapAmt = min(swapAmtMax, short.balanceOf(shortWhale))
     print("Force Large Swap - to offset debt ratios")
@@ -26,7 +26,7 @@ def offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct,
     
 
 def offSetDebtRatioHigh(strategy_mock_oracle, lp_token, token, Contract, swapPct, router, whale):
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
     swapAmtMax = token.balanceOf(lp_token)*swapPct
     swapAmt = min(swapAmtMax, token.balanceOf(whale))
     print("Force Large Swap - to offset debt ratios")
@@ -62,17 +62,11 @@ def test_migration(
 
     new_strategy = strategist.deploy(strategy_contract, vault)
 
-    yieldBooster = '0xD27c373950E7466C53e5Cd6eE3F70b240dC0B1B1'
-    xGrail = '0x3CAaE25Ee616f2C8E13C74dA0813402eae3F496b'
-    
-    grailManager = strategist.deploy(grail_manager_contract)
-    grailConfig = [new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
+    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
+    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
+    grailManager = grail_manager_contract.deploy(gov, new_strategy, new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
 
-    encoded_initializer_function = encode_function_data(grailManager.initialize, gov, new_strategy, grailConfig)
-    
-    grailManagerProxy = strategist.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
-
-    new_strategy.setGrailManager(grailManagerProxy, {'from' : strategist})
+    new_strategy.setGrailManager(grailManager, {'from' : strategist})
 
     # migrate to a new strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
@@ -122,17 +116,11 @@ def test_migration_with_low_calcdebtratio(
 
     new_strategy = strategist.deploy(strategy_contract, vault)
     
-    yieldBooster = '0xD27c373950E7466C53e5Cd6eE3F70b240dC0B1B1'
-    xGrail = '0x3CAaE25Ee616f2C8E13C74dA0813402eae3F496b'
-    
-    grailManager = strategist.deploy(grail_manager_contract)
-    grailConfig = [new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
+    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
+    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
+    grailManager = grail_manager_contract.deploy(gov, new_strategy, new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
 
-    encoded_initializer_function = encode_function_data(grailManager.initialize, gov, new_strategy, grailConfig)
-    
-    grailManagerProxy = strategist.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
-
-    new_strategy.setGrailManager(grailManagerProxy, {'from' : strategist})
+    new_strategy.setGrailManager(grailManager, {'from' : strategist})
 
 
     # migrate to a new strategy
@@ -172,7 +160,7 @@ def test_migration_with_high_calcdebtratio(
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
 
     # use other AMM's LP to force some swaps
-    short = Contract(strategy.short())
+    short = interface.IERC20(strategy.short())
 
 
     print("Force Large Swap - to offset debt ratios")
@@ -186,17 +174,12 @@ def test_migration_with_high_calcdebtratio(
 
     new_strategy = strategist.deploy(strategy_contract, vault)
 
-    yieldBooster = '0xD27c373950E7466C53e5Cd6eE3F70b240dC0B1B1'
-    xGrail = '0x3CAaE25Ee616f2C8E13C74dA0813402eae3F496b'
-    
-    grailManager = strategist.deploy(grail_manager_contract)
-    grailConfig = [new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
+    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
+    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
+    grailManager = grail_manager_contract.deploy(gov, new_strategy, new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
 
-    encoded_initializer_function = encode_function_data(grailManager.initialize, gov, new_strategy, grailConfig)
-    
-    grailManagerProxy = strategist.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
 
-    new_strategy.setGrailManager(grailManagerProxy, {'from' : strategist})
+    new_strategy.setGrailManager(grailManager, {'from' : strategist})
 
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
     # will be some loss so use rel = 2e-3 (due to forcing debt ratio away from 100%)

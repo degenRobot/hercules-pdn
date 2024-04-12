@@ -898,6 +898,7 @@ abstract contract CoreStrategyAaveTorch is BaseStrategy {
     }
 
     function _redeemWant(uint256 _redeem_amount) internal {
+        if (_redeem_amount == 0) return;
         pool.withdraw(address(want), _redeem_amount, address(this));
     }
 
@@ -999,6 +1000,7 @@ abstract contract CoreStrategyAaveTorch is BaseStrategy {
         internal
         returns (uint256 slippageWant)
     {
+        if (_amount == 0) return (0);
         uint256 amountOutMin = convertWantToShortLP(_amount);
         
         uint256 shortBalanceBefore = short.balanceOf(address(this));
@@ -1030,6 +1032,7 @@ abstract contract CoreStrategyAaveTorch is BaseStrategy {
         internal
         returns (uint256 _amountWant, uint256 _slippageWant)
     {
+        if (_amountShort == 0) return(0,0);
         _amountWant = convertShortToWantLP(_amountShort);
 
         uint256 wantBalanceBefore = want.balanceOf(address(this));
@@ -1052,6 +1055,7 @@ abstract contract CoreStrategyAaveTorch is BaseStrategy {
         internal
         returns (uint256 _slippageWant)
     {
+        if (_amountOut == 0) return(0);
         uint256 amountInWant = convertShortToWantLP(_amountOut);
         uint256 amountInExactWant = getAmountIn(_amountOut);
 

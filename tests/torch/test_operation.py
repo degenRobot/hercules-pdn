@@ -36,7 +36,7 @@ def offSetDebtRatioHigh(strategy, lp_token, token, Contract, swapPct, router, wh
         router.swapExactTokensForTokens(swapAmt, 0, [token, short], whale, 2**256-1, {"from": whale})
 
 def setOracleShortPriceToLpPrice(strategy_mock_oracle):
-    short = Contract(strategy_mock_oracle.short())
+    short = interface.IERC20(strategy_mock_oracle.short())
     # Oracle should reflect the "new" price
     pool_address_provider = interface.IPoolAddressesProvider(POOL_ADDRESS_PROVIDER)
     oracle = MockAaveOracle.at(pool_address_provider.getPriceOracle())
@@ -116,44 +116,6 @@ def test_emergency_exit(
     strategy.harvest()
     assert strategy.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
     assert pytest.approx(token.balanceOf(vault), rel=RELATIVE_APPROX) == amount
-
-
-
-def test_profitable_harvest(
-    chain, accounts, gov, token, vault, strategy, grailManager ,user, strategist, amount, RELATIVE_APPROX, conf
-):
-    # Deposit to the vault
-    token.approve(vault.address, amount, {"from": user})
-    vault.deposit(amount, {"from": user})
-    assert token.balanceOf(vault.address) == amount
-
-    # Harvest 1: Send funds through the strategy
-    chain.sleep(1)
-    chain.mine(1)
-    strategy.harvest()
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
-    before_pps = vault.pricePerShare()
-
-    # Use a whale of the harvest token to send
-    harvest = interface.ERC20(conf['harvest_token'])
-    harvestWhale = accounts.at(conf['harvest_token_whale'], True)
-    sendAmount = round((vault.totalAssets() / conf['harvest_token_price']) * 0.05)
-    print('Send amount: {0}'.format(sendAmount))
-    print('harvestWhale balance: {0}'.format(harvest.balanceOf(harvestWhale)))
-    harvest.transfer(grailManager, sendAmount, {'from': harvestWhale})
-
-    # Harvest 2: Realize profit
-    chain.sleep(1)
-    chain.mine(1)
-    strategy.harvest()
-    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
-    chain.mine(1)
-    profit = token.balanceOf(vault.address)  # Profits go to vault
-
-    assert strategy.estimatedTotalAssets() + profit > amount
-    assert vault.pricePerShare() > before_pps
-
-
 
 def test_change_debt(
     chain, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX, conf
@@ -440,7 +402,7 @@ def test_reduce_debt_with_low_calcdebtratio(
 ):
     swapPct = 0.015
     # Setting higher testPriceSource treshold for user
-    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, True)
+    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, False)
     offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct, router, shortWhale)
     # setOracleShortPriceToLpPrice(strategy_mock_oracle)
     half = int(amount / 2)
@@ -470,7 +432,7 @@ def test_reduce_debt_with_high_calcdebtratio(
 ):
     swapPct = 0.015
     # Setting higher testPriceSource treshold for user
-    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, True)
+    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, False)
     offSetDebtRatioHigh(strategy_mock_oracle, lp_token, token, Contract, swapPct, router, whale)
     # setOracleShortPriceToLpPrice(strategy_mock_oracle)
     debtRatio = strategy_mock_oracle.calcDebtRatio()
@@ -516,7 +478,7 @@ def test_increase_debt_with_low_calcdebtratio(
     # Change the debt ratio to ~95% and rebalance
     swapPct = 0.015
     # Setting higher testPriceSource treshold for user
-    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, True)
+    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, False)
 
     offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct, router, shortWhale)
     # setOracleShortPriceToLpPrice(strategy_mock_oracle)
@@ -548,7 +510,7 @@ def test_increase_debt_with_high_calcdebtratio(
     token.approve(vault_mock_oracle.address, amount, {"from": user})
     vault_mock_oracle.deposit(amount, {"from": user})
     # Setting higher testPriceSource treshold for user
-    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, True)
+    strategy_mock_oracle.setSlippageConfig(9900, 400, 500, False)
 
     vault_mock_oracle.updateStrategyDebtRatio(strategy_mock_oracle.address, 50_00, {"from": gov})
     chain.sleep(1)
@@ -593,11 +555,48 @@ def test_increase_debt_with_high_calcdebtratio(
     #remainingAmount = strategy.estimatedTotalAssets() / (amount - loss)
     #print('Remaining Amount:   {0}'.format(remainingAmount))
 
+def test_profitable_harvest(
+    chain, accounts, gov, token, vault, strategy, grailManager ,user, strategist, amount, RELATIVE_APPROX, conf
+):
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    assert token.balanceOf(vault.address) == amount
+
+    # Harvest 1: Send funds through the strategy
+    chain.sleep(1)
+    chain.mine(1)
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+    before_pps = vault.pricePerShare()
+
+    # Use a whale of the harvest token to send
+    harvest = interface.ERC20(conf['harvest_token'])
+    harvestWhale = accounts.at(conf['harvest_token_whale'], True)
+    sendAmount = round((vault.totalAssets() / conf['harvest_token_price']) * 0.05)
+    print('Send amount: {0}'.format(sendAmount))
+    print('harvestWhale balance: {0}'.format(harvest.balanceOf(harvestWhale)))
+    harvest.transfer(grailManager, sendAmount, {'from': harvestWhale})
+
+    # Harvest 2: Realize profit
+    chain.sleep(1)
+    chain.mine(1)
+    strategy.harvest()
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    profit = token.balanceOf(vault.address)  # Profits go to vault
+
+    assert strategy.estimatedTotalAssets() + profit > amount
+    assert vault.pricePerShare() > before_pps
+
+
+
+
 POOL = '0x794a61358D6845594F94dc1DB02A252b5b4814aD' 
 want = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' # USDC
 ORACLE = '0xb023e699F5a33916Ea823A16485e259257cA8Bd1'
 
-POOL_ADDRESS_PROVIDER = '0xa97684ead0e402dc232d5a977953df7ecbab3cdb'
+POOL_ADDRESS_PROVIDER = '0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF'
 """
 def test_change_debt_with_price_offset_high(
     chain, gov, token, vault, strategy_mock_oracle, user, strategist, amount, RELATIVE_APPROX, conf, MockAaveOracle, strategy_mock_initialized_vault
