@@ -44,6 +44,12 @@ interface INFTHandler is IERC721Receiver {
     ) external returns (bool);
 }
 
+interface IXMetis {
+    function balanceOf(address owner) external view returns (uint256);
+    function minRedeemDuration() external view returns (uint256);
+    function redeem(uint256 xMetisAmount, uint256 duration) external;
+}
+
 interface CoreStrategyAPI {
     function harvestTrigger(uint256 callCost) external view returns (bool);
 
@@ -136,6 +142,9 @@ contract TorchManager is INFTHandler {
     ICamelotRouter public router;
     address public yieldBooster;
 
+    address public xMetis = 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996;
+    IERC20 public wMetis = IERC20(0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481);
+
     CoreStrategyAPI public strategy;
     IERC20 public lp;
     address public strategist;
@@ -217,11 +226,14 @@ contract TorchManager is INFTHandler {
         } else {
             _amount = 0;
         }
+        // Add in unstaked LP balance to total
+        _amount = _amount.add(lp.balanceOf(address(this)));
     }
 
     function deposit(uint256 _amount) external {
         _onlyStrategy();
         lp.transferFrom(address(strategy), address(this), _amount);
+        
         if (tokenId != uint256(0)) {
             pool.addToPosition(tokenId, _amount);
         } else {
@@ -231,11 +243,14 @@ contract TorchManager is INFTHandler {
                 _stakeXGrail(balanceXGrail);
             }
         }
+        
     }
 
     function withdraw(uint256 _amount) external {
         _onlyStrategy();
         if (tokenId == uint256(0)) {
+            // case where we have no staked position 
+            lp.transfer(address(strategy), _amount);
             return;
         }
 
@@ -253,9 +268,13 @@ contract TorchManager is INFTHandler {
     function harvest() external onlyStrategyAndAbove {
         if (tokenId != uint256(0)) {
             pool.harvestPosition(tokenId);
-            _swapGrailToWant(balanceOfGrail());
-            _stakeXGrail(balanceOfXGrail());
         }
+        /*
+        _harvestXMetis();
+        _swapGrailToWant(balanceOfGrail());
+        _stakeXGrail(balanceOfXGrail());
+        */
+
     }
 
     function stakeXGrail(uint256 _amount) external onlyStrategist {
@@ -276,6 +295,17 @@ contract TorchManager is INFTHandler {
         if (_amount > _minAmount) {
             xGrail.allocate(yieldBooster, _amount, usageData);
         }
+    }
+
+    function _harvestXMetis() internal {
+        uint256 balanceXMetis = IXMetis(xMetis).balanceOf(address(this));
+        if (balanceXMetis > 0) {
+            IXMetis(xMetis).redeem(balanceXMetis, IXMetis(xMetis).minRedeemDuration());
+        }
+    }
+
+    function _harvestMetis() internal {
+        // TO DO -> swap Metis to Want
     }
 
     function _swapGrailToWant(uint256 _amountGrail) internal {

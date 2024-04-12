@@ -59,6 +59,40 @@ def steal(stealPercent, strategy, token, chain, gov, user):
 def strategySharePrice(strategy, vault):
     return strategy.estimatedTotalAssets() / vault.strategies(strategy)['totalDebt']
 
+def test_profitable_harvest(
+    chain, accounts, gov, token, vault, strategy, grailManager ,user, strategist, amount, RELATIVE_APPROX, conf
+):
+    # Deposit to the vault
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+    assert token.balanceOf(vault.address) == amount
+
+    # Harvest 1: Send funds through the strategy
+    chain.sleep(1)
+    chain.mine(1)
+    strategy.harvest()
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+    before_pps = vault.pricePerShare()
+
+    # Use a whale of the harvest token to send
+    harvest = interface.ERC20(conf['harvest_token'])
+    harvestWhale = accounts.at(conf['harvest_token_whale'], True)
+    sendAmount = round((vault.totalAssets() / conf['harvest_token_price']) * 0.05)
+    print('Send amount: {0}'.format(sendAmount))
+    print('harvestWhale balance: {0}'.format(harvest.balanceOf(harvestWhale)))
+    harvest.transfer(grailManager, sendAmount, {'from': harvestWhale})
+
+    # Harvest 2: Realize profit
+    chain.sleep(1)
+    chain.mine(1)
+    strategy.harvest()
+    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
+    chain.mine(1)
+    profit = token.balanceOf(vault.address)  # Profits go to vault
+
+    assert strategy.estimatedTotalAssets() + profit > amount
+    assert vault.pricePerShare() > before_pps
+
 
 
 def test_operation(
@@ -118,40 +152,6 @@ def test_emergency_exit(
     assert pytest.approx(token.balanceOf(vault), rel=RELATIVE_APPROX) == amount
 
 
-
-def test_profitable_harvest(
-    chain, accounts, gov, token, vault, strategy, grailManager ,user, strategist, amount, RELATIVE_APPROX, conf
-):
-    # Deposit to the vault
-    token.approve(vault.address, amount, {"from": user})
-    vault.deposit(amount, {"from": user})
-    assert token.balanceOf(vault.address) == amount
-
-    # Harvest 1: Send funds through the strategy
-    chain.sleep(1)
-    chain.mine(1)
-    strategy.harvest()
-    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
-    before_pps = vault.pricePerShare()
-
-    # Use a whale of the harvest token to send
-    harvest = interface.ERC20(conf['harvest_token'])
-    harvestWhale = accounts.at(conf['harvest_token_whale'], True)
-    sendAmount = round((vault.totalAssets() / conf['harvest_token_price']) * 0.05)
-    print('Send amount: {0}'.format(sendAmount))
-    print('harvestWhale balance: {0}'.format(harvest.balanceOf(harvestWhale)))
-    harvest.transfer(grailManager, sendAmount, {'from': harvestWhale})
-
-    # Harvest 2: Realize profit
-    chain.sleep(1)
-    chain.mine(1)
-    strategy.harvest()
-    chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
-    chain.mine(1)
-    profit = token.balanceOf(vault.address)  # Profits go to vault
-
-    assert strategy.estimatedTotalAssets() + profit > amount
-    assert vault.pricePerShare() > before_pps
 
 
 

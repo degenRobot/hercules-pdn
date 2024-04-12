@@ -12,7 +12,7 @@ POOL_ADDRESS_PROVIDER = '0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF'
 # Tokens
 USDC = '0xEA32A96608495e54156Ae48931A7c20f0dcc1a21'
 USDC_WHALE = '0x555982d2E211745b96736665e19D9308B615F78e'
-WETH_WHALE = '0x555982d2E211745b96736665e19D9308B615F78e'
+WETH_WHALE = '0x59051B5F5172b69E66869048Dc69D35dB0B3610d'
 WMETIS = '0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481'
 WETH = ''
 SUSHI = '0xd4d42F0b6DEF4CE0383636770eF773390d85c61A'
@@ -29,7 +29,7 @@ CONFIG = {
         'deposit': 1e6,
         'harvest_token': TORCH,
         'harvest_token_price': TORCH_PRICE * 1e-12, #note adjust by 1e-12 due to dif in decimals between USDC & GRAIL token i.e. 6 vs 18 
-        'harvest_token_whale': '0x5A5A7C0108CEf44549b7782495b1Df2Ad5294Da3',
+        'harvest_token_whale': '0x5c24bA2eA12f94E9F3476eaBDf10373dC2913605',
         'lp_token': '0x4C10a0E5fc4a6eDe720dEcdAD99B281076EAC0fA',
         'lp_whale': '0x3E5F2622F66f916Ba79cb12B40CB29727bb2130E',
         'lp_farm': '0xE67348414A5Ab2c065FA2b422144A6c5C925cEfF',
@@ -301,19 +301,13 @@ def strategy_mock_oracle_before_set(token, amount, user, strategist, keeper, vau
 
 @pytest.fixture
 def grailManager_mock_oracle(grail_manager_proxy_contract, grail_manager_contract, gov, strategy_mock_oracle_before_set, conf) : 
+    
     yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
     xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
     
-    grailManager = gov.deploy(grail_manager_contract)
+    grailManager = grail_manager_contract.deploy(gov, strategy_mock_oracle_before_set, strategy_mock_oracle_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
 
-    # grailManager.initialize(gov, strategy, grailConfig, {'from': gov})
-    grailConfig = [strategy_mock_oracle_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
-
-    encoded_initializer_function = encode_function_data(grailManager.initialize, gov, strategy_mock_oracle_before_set, grailConfig)
-    
-    grailManagerProxy = gov.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
-
-    yield grailManagerProxy
+    yield grailManager
 
 @pytest.fixture
 def strategy_mock_oracle(strategy_mock_oracle_before_set, grailManager_mock_oracle, gov):

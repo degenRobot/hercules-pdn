@@ -230,6 +230,11 @@ abstract contract CoreStrategyAaveTorch is BaseStrategy {
         view
         returns (address[] memory _path)
     {
+        _path = new address[](2);
+        _path[0] = _token_in;
+        _path[1] = _token_out;
+
+        /*
         bool is_weth =
             _token_in == address(weth) || _token_out == address(weth);
         _path = new address[](is_weth ? 2 : 3);
@@ -240,6 +245,7 @@ abstract contract CoreStrategyAaveTorch is BaseStrategy {
             _path[1] = address(weth);
             _path[2] = _token_out;
         }
+        */
     }
 
     function approveContracts() internal {
