@@ -22,6 +22,15 @@ struct GrailManagerConfig {
     address yieldBooster;
 }
 
+
+// Nitro Pool Factory : https://explorer.metis.io/address/0xC2cE64CFE62442925C29868cF6676e5A8728cbD3/contract/1088/code
+
+interface INitroPool {
+    // TO DO - confirm interface for nitro pool 
+    function deposit(uint256 _amount, uint256 _tokenId) external;
+    function withdraw(uint256 _amount, uint256 _tokenId)) external;
+}
+
 interface INFTHandler is IERC721Receiver {
     function onNFTHarvest(
         address operator,
@@ -244,6 +253,8 @@ contract TorchManager is INFTHandler {
             }
         }
         
+        // TO DO -> stake in nitro pool
+
     }
 
     function withdraw(uint256 _amount) external {
