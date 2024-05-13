@@ -477,8 +477,15 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     }
 
     function getLpPrice() public view returns (uint256) {
-        (uint256 wantInLp, uint256 shortInLp) = getLpReserves();
-        return wantInLp.mul(1e18).div(shortInLp);
+        
+        (uint160 currentPrice, , , , , , ) = algebraPool.globalState(); 
+        uint256 price;
+        if (algebraPool.token0() == address(want)) {
+            price = ((2 ** 96) * (2 ** 96)) * 1e18 / (uint256(currentPrice) * uint256(currentPrice));
+        } else {
+            price = 1e18 * uint256(currentPrice) * uint256(currentPrice) / ((2 ** 96) * (2 ** 96));
+        }
+        return(price);    
     }
 
     function getOraclePrice() public view returns (uint256) {
@@ -763,6 +770,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         view
         returns (uint256 _wantInLp, uint256 _shortInLp)
     {
+
         (uint112 reserves0, uint112 reserves1,,) = wantShortLP.getReserves();
         if (wantShortLP.token0() == address(want)) {
             _wantInLp = uint256(reserves0);
@@ -795,7 +803,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         returns (uint256)
     {
         (uint256 wantInLp, uint256 shortInLp) = getLpReserves();
-        return (_amountShort.mul(wantInLp).div(shortInLp));
+        return (_amountShort.mul(getLpPrice).div(1e18));
     }
 
     function convertShortToWantOracle(uint256 _amountShort)
@@ -811,8 +819,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         view
         returns (uint256)
     {
-        (uint256 wantInLp, uint256 shortInLp) = getLpReserves();
-        return _amountWant.mul(shortInLp).div(wantInLp);
+        return _amountWant.mul(1e18).div(getLpPrice());
     }
 
     function balanceLpInShort() public view returns (uint256) {

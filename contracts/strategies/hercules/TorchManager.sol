@@ -28,7 +28,7 @@ struct GrailManagerConfig {
 interface INitroPool {
     // TO DO - confirm interface for nitro pool 
     function deposit(uint256 _amount, uint256 _tokenId) external;
-    function withdraw(uint256 _amount, uint256 _tokenId)) external;
+    function withdraw(uint256 _amount, uint256 _tokenId) external;
 }
 
 interface INFTHandler is IERC721Receiver {
@@ -280,11 +280,6 @@ contract TorchManager is INFTHandler {
         if (tokenId != uint256(0)) {
             pool.harvestPosition(tokenId);
         }
-        /*
-        _harvestXMetis();
-        _swapGrailToWant(balanceOfGrail());
-        _stakeXGrail(balanceOfXGrail());
-        */
 
     }
 
