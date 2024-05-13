@@ -16,6 +16,7 @@ interface IGrailManager {
     function harvest() external;
     function balance() external view returns (uint256 _amount);
     function getPendingRewards() external view returns (uint256, uint256);
+    function pool() external view returns (address);
 }
 
 
@@ -62,9 +63,20 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
         return grailRewards;
     }
 
+    function _addToLP(uint256 _amountShort) internal override {
+        (uint256 _amount0, uint256 _amount1) = _getAmountsIn(_amountShort);
+        uint256[4] memory _minAmounts;
+        // Check Max deposit amounts 
+        (_amount0, _amount1) = _checkMaxAmts(_amount0, _amount1);
+        // Deposit into Gamma Vault & Farm 
+        // depositPoint.deposit(_amount0, _amount1, address(grailManager), address(gammaVault), _minAmounts);
+        depositPoint.deposit(algebraPool.token0(), algebraPool.token1(), _amount0, _amount1, address(this), address(gammaVault), _minAmounts, IGrailManager(grailManager).pool(), 0);
+    }
+
+
     function _depositLp() internal override {
         uint256 lpBalance = wantShortLP.balanceOf(address(this));
-        IGrailManager(grailManager).deposit(lpBalance);
+        //IGrailManager(grailManager).deposit(lpBalance);
     }
 
     function _withdrawFarm(uint256 _amount) internal override {
@@ -77,6 +89,7 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     }
 
     function countLpPooled() internal view override returns (uint256) {
+        
         return IGrailManager(grailManager).balance();
     }
 

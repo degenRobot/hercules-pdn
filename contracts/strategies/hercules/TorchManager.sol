@@ -218,7 +218,7 @@ contract TorchManager is INFTHandler {
         router = ICamelotRouter(_router);
         yieldBooster = _yieldBooster;
 
-        lp.approve(address(pool), type(uint256).max);
+        //lp.approve(address(pool), type(uint256).max);
         grail.approve(address(router), type(uint256).max);
         xGrail.approveUsage(yieldBooster, type(uint256).max);
     }
@@ -236,7 +236,7 @@ contract TorchManager is INFTHandler {
             _amount = 0;
         }
         // Add in unstaked LP balance to total
-        _amount = _amount.add(lp.balanceOf(address(this)));
+        //_amount = _amount.add(lp.balanceOf(address(this)));
     }
 
     function deposit(uint256 _amount) external {

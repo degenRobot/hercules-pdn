@@ -76,9 +76,9 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 indexed adjAmount
     );
 
-    uint256 public collatUpper = 7500;
-    uint256 public collatTarget = 7000;
-    uint256 public collatLower = 6500;
+    uint256 public collatUpper = 5500;
+    uint256 public collatTarget = 5000;
+    uint256 public collatLower = 4500;
     uint256 public debtUpper = 10390;
     uint256 public debtLower = 9610;
     uint256 public rebalancePercent = 10000; // 100% (how far does rebalance of debt move towards 100% from threshold)
@@ -153,7 +153,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     function _setup() internal virtual {}
 
     function name() external view override returns (string memory) {
-        return "StrategyHedgedFarmingAaveCamelotV1.0";
+        return "StrategyHedgedFarmingAaveTorch";
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -460,25 +460,49 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             return;
         }
         uint256 oPrice = getOraclePrice();
-        uint256 lpPrice = getLpPrice();
-        uint256 borrow =
-            collatTarget.mul(_amount).mul(1e18).div(
-                BASIS_PRECISION.mul(
-                    (collatTarget.mul(lpPrice).div(BASIS_PRECISION).add(oPrice))
-                )
-            );
+        uint256 poolWeightWant = getPoolWeightWant();
+        uint256 _denominator = BASIS_PRECISION + poolWeightWant * collatTarget / (BASIS_PRECISION - poolWeightWant);
 
-        uint256 debtAllocation = borrow.mul(lpPrice).div(1e18);
-        uint256 lendNeeded = _amount.sub(debtAllocation);
-        _lendWant(lendNeeded);
-        _borrow(borrow);
-        _addToLP(borrow);
-        _depositLp();
+        uint256 _lendAmt = _amount * BASIS_PRECISION / _denominator;
+        uint256 _borrowAmt = (_lendAmt * collatTarget / BASIS_PRECISION) * 1e18 / oPrice;
+
+        _lendWant(_lendAmt);
+        _borrow(_borrowAmt);
+        _addToLP(_borrowAmt);
+
+        // Any excess funds after should be returned back to AAVE 
+        uint256 _excessWant = want.balanceOf(address(this));
+        if (_excessWant > 0) {
+            _lendWant(_excessWant);
+        }
+        _repayDebt();
+    }
+
+    function getTotalAmounts() public view returns(uint256 totalWant, uint256 totalShort) {
+        if (algebraPool.token0() == address(want)) {
+            (totalWant, totalShort) = gammaVault.getTotalAmounts();
+        } else {
+             (totalShort, totalWant) = gammaVault.getTotalAmounts();           
+        }
+
+    }
+
+    function getPoolWeightWant() public view returns(uint256) {
+        uint256 totalWant; 
+        uint256 totalShort;
+        if (algebraPool.token0() == address(want)) {
+            (totalWant, totalShort) = gammaVault.getTotalAmounts();
+        } else {
+             (totalShort, totalWant) = gammaVault.getTotalAmounts();           
+        }
+        uint256 _poolWeightWant = BASIS_PRECISION.mul(totalWant).div(totalWant.add( convertShortToWantOracle(totalShort)));
+        return _poolWeightWant;
+
     }
 
     function getLpPrice() public view returns (uint256) {
         
-        (uint160 currentPrice, , , , , , ) = algebraPool.globalState(); 
+        (uint160 currentPrice, , , , , , , ) = algebraPool.globalState(); 
         uint256 price;
         if (algebraPool.token0() == address(want)) {
             price = ((2 ** 96) * (2 ** 96)) * 1e18 / (uint256(currentPrice) * uint256(currentPrice));
@@ -765,6 +789,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         return balanceDebtOracle().mul(BASIS_PRECISION).div(balanceLend());
     }
 
+    /*
     function getLpReserves()
         public
         view
@@ -796,14 +821,14 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             _shortFeePercent = uint256(fee0);
         }
     }
+    */
 
     function convertShortToWantLP(uint256 _amountShort)
         internal
         view
         returns (uint256)
     {
-        (uint256 wantInLp, uint256 shortInLp) = getLpReserves();
-        return (_amountShort.mul(getLpPrice).div(1e18));
+        return _amountShort.mul(getLpPrice()).div(1e18);
     }
 
     function convertShortToWantOracle(uint256 _amountShort)
@@ -1010,13 +1035,8 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
     }
 
-    function _addToLP(uint256 _amountShort) internal {
-        (uint256 _amount0, uint256 _amount1) = _getAmountsIn(_amountShort);
-        uint256[4] memory _minAmounts;
-        // Check Max deposit amounts 
-        (_amount0, _amount1) = _checkMaxAmts(_amount0, _amount1);
-        // Deposit into Gamma Vault & Farm 
-        depositPoint.deposit(_amount0, _amount1, address(grailManager), address(gammaVault), _minAmounts);
+    function _addToLP(uint256 _amountShort) internal virtual {
+
     }
 
     // Farm-specific methods
@@ -1038,27 +1058,8 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     function _removeAllLp() internal {
         uint256 _amount = wantShortLP.balanceOf(address(this));
         if (_amount > 0) {
-            (uint256 wantLP, uint256 shortLP) = getLpReserves();
-
-            uint256 lpIssued = wantShortLP.totalSupply();
-
-            uint256 amountAMin =
-                _amount.mul(shortLP).mul(slippageAdj).div(BASIS_PRECISION).div(
-                    lpIssued
-                );
-            uint256 amountBMin =
-                _amount.mul(wantLP).mul(slippageAdj).div(BASIS_PRECISION).div(
-                    lpIssued
-                );
-            router.removeLiquidity(
-                address(short),
-                address(want),
-                _amount,
-                amountAMin,
-                amountBMin,
-                address(this),
-                block.timestamp
-            );
+            uint256[4] memory _minAmounts;
+            gammaVault.withdraw(_amount, address(this), address(this), _minAmounts);
         }
     }
 
@@ -1146,14 +1147,21 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         _slippageWant = amountInExactWant - amountInWant;
     }
 
-    function getAmountIn(uint256 amountOut) internal returns (uint256 amountIn) {
-        require(amountOut > 0, "insufficient output amount");
-        (uint256 reserveIn, uint256 reserveOut, uint256 reserveInFee,) = getLpReservesAndFee();
-        require(reserveIn > 0 && reserveOut > 0, "insufficient liquidity");
+    function getAmountIn(uint256 _amountShort) internal returns (uint256 _amountWant) {
+        uint256 totalWant; 
+        uint256 totalShort;
+        if (algebraPool.token0() == address(want)) {
+            (totalWant, totalShort) = gammaVault.getTotalAmounts();
+        } else {
+             (totalShort, totalWant) = gammaVault.getTotalAmounts();           
+        }
+        uint256 balWant = want.balanceOf(address(this));
+        uint256 _amountWant = totalWant * _amountShort / totalShort;
+        // if we don't have enough want to add to LP, need to scale back amounts we add
+        if (balWant < _amountWant) {
+            _amountWant = balWant;
+        } 
 
-        uint256 numerator = reserveIn.mul(amountOut).mul(FEE_DENOMINATOR);
-        uint256 denominator = reserveOut.sub(amountOut).mul(FEE_DENOMINATOR - reserveInFee);
-        amountIn = (numerator / denominator).add(1);
     }
 
     /**
