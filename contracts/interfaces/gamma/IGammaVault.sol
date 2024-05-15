@@ -11,4 +11,6 @@ interface IGammaVault {
     function totalSupply() external view returns(uint256);
     function deposit0Max() external view returns(uint256);
     function deposit1Max() external view returns(uint256);
+    function token0() external view returns(address);
+    function token1() external view returns(address);
 }

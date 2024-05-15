@@ -19,10 +19,25 @@ interface IGrailManager {
     function pool() external view returns (address);
 }
 
+interface INFTPool {
+    function getStakingPosition(uint256 _tokenId) external view returns (uint256 amount, uint256 amountWithMultiplier, uint256 startLockTime,
+    uint256 lockDuration, uint256 lockMultiplier, uint256 rewardDebt,
+    uint256 boostPoints, uint256 totalMultiplier);
+    function lastTokenId() external view returns (uint256);
+    function withdrawFromPosition(uint256 _tokenId, uint256 _amount) external;
+}
+
+interface INitroPool {
+    function withdraw(uint256 _amount) external;
+
+}
+
 
 contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     using SafeERC20 for IERC20;
-    uint256 constant farmPid = 0;
+    uint256 public tokenId;
+    address public nitroPool;
+    address public nftPool;
 
     event SetGrailManager(address grailManager);
     event SetAave(address oracle, address pool);
@@ -50,6 +65,9 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
         algebraPool = IAlgebraPool(0x35096c3cA17D12cBB78fA4262f3c6eff73ac9fFc);  
         clearance = IClearance(0xd359e08A60E2dDBFa1fc276eC11Ce7026642Ae71);
 
+        nftPool = 0x69E2BcCaFD7dbC4CBfB3aE2cCFe2bAC2101f668d;
+        nitroPool = 0x7F404c937b0cE51773B32112467566E6549ebC0F;
+
         want.approve(address(gammaVault), type(uint256).max);        
         IERC20(address(short)).approve(address(gammaVault), type(uint256).max);   
 
@@ -64,13 +82,20 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     }
 
     function _addToLP(uint256 _amountShort) internal override {
+        if (tokenId != 0) {
+            INitroPool(nitroPool).withdraw(tokenId);
+        }
+
         (uint256 _amount0, uint256 _amount1) = _getAmountsIn(_amountShort);
         uint256[4] memory _minAmounts;
         // Check Max deposit amounts 
         (_amount0, _amount1) = _checkMaxAmts(_amount0, _amount1);
         // Deposit into Gamma Vault & Farm 
         // depositPoint.deposit(_amount0, _amount1, address(grailManager), address(gammaVault), _minAmounts);
-        depositPoint.deposit(algebraPool.token0(), algebraPool.token1(), _amount0, _amount1, address(this), address(gammaVault), _minAmounts, IGrailManager(grailManager).pool(), 0);
+        depositPoint.deposit(algebraPool.token0(), algebraPool.token1(), _amount0, _amount1, address(this), address(gammaVault), _minAmounts, nftPool, 0);
+        tokenId = INFTPool(IGrailManager(grailManager).pool()).lastTokenId();
+
+
     }
 
 
@@ -81,7 +106,8 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
 
     function _withdrawFarm(uint256 _amount) internal override {
         if (_amount > 0)
-            IGrailManager(grailManager).withdraw(_amount);
+            INitroPool(nitroPool).withdraw(_amount);
+            INFTPool(nftPool).withdrawFromPosition(tokenId, _amount);
     }
 
     function claimHarvest() internal override {
@@ -89,8 +115,11 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     }
 
     function countLpPooled() internal view override returns (uint256) {
-        
-        return IGrailManager(grailManager).balance();
+        if (tokenId == 0) {
+            return 0;
+        }
+        (uint256 _amount, , , , , , , ) = INFTPool(nftPool).getStakingPosition(tokenId);
+        return _amount;
     }
 
     function setGrailManager(address _grailManager) external onlyAuthorized {

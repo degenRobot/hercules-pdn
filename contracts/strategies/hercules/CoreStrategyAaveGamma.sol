@@ -449,6 +449,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         }
     }
 
+
     // deploy assets according to vault strategy
     function _deploy(uint256 _amount) internal {
         if (isPaused) {
@@ -461,10 +462,12 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         }
         uint256 oPrice = getOraclePrice();
         uint256 poolWeightWant = getPoolWeightWant();
-        uint256 _denominator = BASIS_PRECISION + poolWeightWant * collatTarget / (BASIS_PRECISION - poolWeightWant);
+        uint256 poolWeightShort = BASIS_PRECISION.sub(poolWeightWant);
+        uint256 _denominator = BASIS_PRECISION.add((poolWeightWant.mul(collatTarget).div(poolWeightShort)));
 
-        uint256 _lendAmt = _amount * BASIS_PRECISION / _denominator;
-        uint256 _borrowAmt = (_lendAmt * collatTarget / BASIS_PRECISION) * 1e18 / oPrice;
+        uint256 _lendAmt = getLendAmount(_amount);
+        //uint256 _lendAmt = _amount.mul(BASIS_PRECISION).div(_denominator);
+        uint256 _borrowAmt = _lendAmt.mul(collatTarget).div(BASIS_PRECISION).mul(1e18).div(oPrice);
 
         _lendWant(_lendAmt);
         _borrow(_borrowAmt);
@@ -487,15 +490,53 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
     }
 
-    function getPoolWeightWant() public view returns(uint256) {
+    function totalLpValue() public view returns(uint256) {
         uint256 totalWant; 
         uint256 totalShort;
-        if (algebraPool.token0() == address(want)) {
+        if (gammaVault.token0() == address(want)) {
             (totalWant, totalShort) = gammaVault.getTotalAmounts();
         } else {
              (totalShort, totalWant) = gammaVault.getTotalAmounts();           
         }
-        uint256 _poolWeightWant = BASIS_PRECISION.mul(totalWant).div(totalWant.add( convertShortToWantOracle(totalShort)));
+
+        return totalWant.add( convertShortToWantLP(totalShort));        
+    }
+
+    function totalLpValueWant() public view returns(uint256) {
+        uint256 totalWant; 
+        uint256 totalShort;
+        if (gammaVault.token0() == address(want)) {
+            (totalWant, totalShort) = gammaVault.getTotalAmounts();
+        } else {
+             (totalShort, totalWant) = gammaVault.getTotalAmounts();           
+        }
+
+        return totalWant;        
+    }
+
+    function getDeployDenominator() public view returns(uint256) {
+        uint256 poolWeightWant = getPoolWeightWant();
+        uint256 poolWeightShort = BASIS_PRECISION.sub(poolWeightWant);
+        return BASIS_PRECISION.add((poolWeightWant.mul(collatTarget).div(poolWeightShort)));
+    }
+
+    function getLendAmount(uint256 _amount) public view returns(uint256) {
+        uint256 _denominator = getDeployDenominator();
+        return _amount.mul(BASIS_PRECISION).div(_denominator);
+    }
+
+    function getPoolWeightWant() public view returns(uint256) {
+        uint256 totalWant; 
+        uint256 totalShort;
+        if (gammaVault.token0() == address(want)) {
+            (totalWant, totalShort) = gammaVault.getTotalAmounts();
+        } else {
+             (totalShort, totalWant) = gammaVault.getTotalAmounts();           
+        }
+
+        uint256 _totalLpValue = totalWant.add( convertShortToWantLP(totalShort));
+
+        uint256 _poolWeightWant = totalWant.mul(BASIS_PRECISION).div(_totalLpValue);
         return _poolWeightWant;
 
     }
