@@ -48,6 +48,8 @@ interface INFTPool {
     uint256 boostPoints, uint256 totalMultiplier);
     function lastTokenId() external view returns (uint256);
     function withdrawFromPosition(uint256 _tokenId, uint256 _amount) external;
+    function approve(address to, uint256 tokenId) external;
+
 }
 
 interface INitroPool {
@@ -125,10 +127,19 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma, INFTHandler {
         //IGrailManager(grailManager).deposit(lpBalance);
     }
 
-    function _withdrawFarm(uint256 _amount) internal override {
-        if (_amount > 0)
-            INitroPool(nitroPool).withdraw(_amount);
-            INFTPool(nftPool).withdrawFromPosition(tokenId, _amount);
+    function _removeAllLp() internal override {
+        uint256 _shares = countLpPooled();
+        INFTPool(nftPool).withdrawFromPosition(tokenId, countLpPooled());
+        uint256[4] memory _minAmounts;
+        gammaVault.withdraw(_shares, address(this), address(this), _minAmounts);
+    }
+
+    function _withdrawAllPooled() internal override {
+        // This should be amount of LP in Nitro Pool (skipped for now as we are not using Nitro Pool)
+        // uint256 _amount;
+        // if (_amount > 0)
+        //     INitroPool(nitroPool).withdraw(_amount);
+        //     INFTPool(nftPool).withdrawFromPosition(tokenId, _amount);
     }
 
     function claimHarvest() internal override {
@@ -160,7 +171,7 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma, INFTHandler {
     ) external override returns (bytes4) {
         require(msg.sender == nftPool, "unexpected nft");
         tokenId = _tokenId;
-        //nitroPool.approve(_from, _tokenId);
+        INFTPool(nftPool).approve(_from, _tokenId);
         return _ERC721_RECEIVED;
     }
 

@@ -604,70 +604,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         );
     }
 
-    function _deployFromLend(uint256 _amount) internal {
-        if (isPaused) {
-            return;
-        }
-
-        (uint256 _lendNeeded, uint256 _borrowAmt) = _calcDeployment(_amount);
-        _redeemWant(balanceLend().sub(_lendNeeded));
-        _borrow(_borrowAmt);
-        _addToLP(balanceShort());
-        _depositLp();
-    }
-
-    function _rebalanceDebtInternal() internal {
-        uint256 swapAmountWant;
-        uint256 slippage;
-        uint256 debtRatio = calcDebtRatio();
-
-        // Liquidate all the lend, leaving some in debt or as short
-        liquidateAllToLend();
-
-        uint256 debtInShort = balanceDebtInShort();
-        uint256 balShort = balanceShort();
-
-        if (debtInShort > balShort) {
-            uint256 debt = convertShortToWantLP(debtInShort.sub(balShort));
-            // If there's excess debt, we swap some want to repay a portion of the debt
-            swapAmountWant = debt.mul(rebalancePercent).div(BASIS_PRECISION);
-            _redeemWant(swapAmountWant);
-            slippage = _swapExactWantShort(swapAmountWant);
-        } else {
-            uint256 excessShort = balShort - debtInShort;
-            // If there's excess short, we swap some to want which will be used
-            // to create lp in _deployFromLend()
-            (swapAmountWant, slippage) = _swapExactShortWant(
-                excessShort.mul(rebalancePercent).div(BASIS_PRECISION)
-            );
-        }
-        _repayDebt();
-        _deployFromLend(estimatedTotalAssets());
-        emit DebtRebalance(debtRatio, swapAmountWant, slippage);
-    }
-
-    /**
-     * Withdraws and removes `_deployedPercent` percentage if LP from farming and pool respectively
-     *
-     * @param _deployedPercent percentage multiplied by BASIS_PRECISION of LP to remove.
-     */
-    function _removeLpPercent(uint256 _deployedPercent) internal {
-        uint256 lpPooled = countLpPooled();
-        uint256 lpUnpooled = wantShortLP.balanceOf(address(this));
-        uint256 lpCount = lpUnpooled.add(lpPooled);
-        uint256 lpReq = lpCount.mul(_deployedPercent).div(BASIS_PRECISION);
-        uint256 lpWithdraw;
-        if (lpReq - lpUnpooled < lpPooled) {
-            lpWithdraw = lpReq.sub(lpUnpooled);
-        } else {
-            lpWithdraw = lpPooled;
-        }
-
-        // Finnally withdraw the LP from farms and remove from pool
-        _withdrawSomeLp(lpWithdraw);
-        _removeAllLp();
-    }
-
     function _getTotalDebt() internal view returns (uint256) {
         return vault.strategies(address(this)).totalDebt;
     }
@@ -752,6 +688,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             // Only rebalance if more than 5% is being liquidated
             // to save on gas
             uint256 slippage = 0;
+            /*
             if (stratPercent > 500) {
                 // swap to ensure the debt ratio isn't negatively affected
                 uint256 shortInShort = balanceShort();
@@ -771,10 +708,11 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
                     );
                 }
             }
+            */
             _repayDebt();
 
             // Redeploy the strat
-            _deployFromLend(balanceDeployed.sub(_amountNeeded).add(slippage));
+            //_deployFromLend(balanceDeployed.sub(_amountNeeded).add(slippage));
             _liquidatedAmount = balanceOfWant().sub(balanceWant);
             _loss = slippage;
         }
@@ -978,7 +916,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         } else {
             lpWithdraw = lpPooled;
         }
-        _withdrawSomeLp(lpWithdraw);
+        _withdrawAllPooled();
         _removeAllLp();
         uint256 wantBal = balanceOfWant();
         if (_amount.div(2) <= wantBal) {
@@ -1056,20 +994,11 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     // Farm-specific methods
     function _depositLp() internal virtual;
 
-    function _withdrawFarm(uint256 _amount) internal virtual;
-
-    function _withdrawSomeLp(uint256 _amount) internal {
-        require(_amount <= countLpPooled());
-        _withdrawFarm(_amount);
-    }
-
-    function _withdrawAllPooled() internal {
-        uint256 lpPooled = countLpPooled();
-        _withdrawFarm(lpPooled);
+    function _withdrawAllPooled() internal virtual {
     }
 
     // all LP currently not in Farm is removed.
-    function _removeAllLp() internal {
+    function _removeAllLp() internal virtual {
         uint256 _amount = wantShortLP.balanceOf(address(this));
         if (_amount > 0) {
             uint256[4] memory _minAmounts;

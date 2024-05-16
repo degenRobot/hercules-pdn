@@ -59,6 +59,22 @@ def steal(stealPercent, strategy, token, chain, gov, user):
 def strategySharePrice(strategy, vault):
     return strategy.estimatedTotalAssets() / vault.strategies(strategy)['totalDebt']
 
+def test_operation_simple(
+    chain, accounts, gov, token, vault, strategy, user, strategist, grailManager, amount, RELATIVE_APPROX, conf, lp_token, router, whale
+):
+    # Deposit to the vault
+    user_balance_before = token.balanceOf(user)
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+
+    strategy.harvest()
+    strat = strategy
+    assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount
+
+    vault.withdraw(amount, user, 500, {'from' : user}) 
+    assert (
+        pytest.approx(token.balanceOf(user), rel=RELATIVE_APPROX) == user_balance_before
+    )
 
 
 def test_operation(
