@@ -16,5 +16,6 @@ interface IAlgebraPool {
     );
     function token0() external view returns(address);
     function token1() external view returns(address);
+    function liquidity() external view returns(uint128);
 
 }

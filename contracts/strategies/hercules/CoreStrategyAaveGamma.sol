@@ -18,7 +18,6 @@ import "../../interfaces/aave/IVariableDebtToken.sol";
 import "../../interfaces/aave/IPool.sol";
 import "../../interfaces/aave/IAaveOracle.sol";
 import "../../interfaces/IUniswapV2Pair.sol";
-import "../../interfaces/IStrategyInsurance.sol";
 
 import {IGammaVault} from "../../interfaces/gamma/IGammaVault.sol";
 import {IUniProxy} from "../../interfaces/gamma/IUniProxy.sol";
@@ -100,9 +99,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     uint8 shortDecimals;
     IUniswapV2Pair wantShortLP; // This is public because it helps with unit testing
     // Contract Interfaces
-    address grailManager; //Since it is usually custom, will leave it as an address
     ICamelotRouter router;
-    IStrategyInsurance public insurance;
     IPool pool;
     IAToken aToken;
     IVariableDebtToken debtToken;
@@ -189,22 +186,9 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         if (_loss >= _profit) {
             _profit = 0;
             _loss = _loss.sub(_profit);
-            _loss = _loss.sub(insurance.reportLoss(totalDebt, _loss));
         } else {
             _profit = _profit.sub(_loss);
             _loss = 0;
-            (uint256 insurancePayment, uint256 compensation) =
-                insurance.reportProfit(totalDebt, _profit);
-            _profit = _profit.sub(insurancePayment).add(compensation);
-
-            // double check insurance isn't asking for too much or zero
-            if (insurancePayment > 0 && insurancePayment < _profit) {
-                SafeERC20.safeTransfer(
-                    want,
-                    address(insurance),
-                    insurancePayment
-                );
-            }
         }
     }
 
@@ -277,17 +261,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         priceSourceDiffKeeper = _priceSourceDiffKeeper;
         priceSourceDiffUser = _priceSourceDiffUser;
         doPriceCheck = _doPriceCheck;
-    }
-
-    function setInsurance(address _insurance) external onlyAuthorized {
-        require(address(insurance) == address(0));
-        insurance = IStrategyInsurance(_insurance);
-    }
-
-    function migrateInsurance(address _newInsurance) external onlyGovernance {
-        require(address(_newInsurance) != address(0));
-        insurance.migrateInsurance(_newInsurance);
-        insurance = IStrategyInsurance(_newInsurance);
     }
 
     function setDebtThresholds(
@@ -390,13 +363,13 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     }
 
     /// rebalances RoboVault holding of short token vs LP to within target collateral range
-    function rebalanceDebt() external onlyKeepers {
-        require(!isPaused);
-        uint256 debtRatio = calcDebtRatio();
-        require(debtRatio < debtLower || debtRatio > debtUpper);
-        require(_testPriceSource(priceSourceDiffKeeper));
-        _rebalanceDebtInternal();
-    }
+    // function rebalanceDebt() external onlyKeepers {
+    //     require(!isPaused);
+    //     uint256 debtRatio = calcDebtRatio();
+    //     require(debtRatio < debtLower || debtRatio > debtUpper);
+    //     require(_testPriceSource(priceSourceDiffKeeper));
+    //     _rebalanceDebtInternal();
+    // }
 
     function claimHarvest() internal virtual;
 
@@ -465,7 +438,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 poolWeightShort = BASIS_PRECISION.sub(poolWeightWant);
         uint256 _denominator = BASIS_PRECISION.add((poolWeightWant.mul(collatTarget).div(poolWeightShort)));
 
-        uint256 _lendAmt = getLendAmount(_amount);
+        uint256 _lendAmt = _getLendAmount(_amount);
         //uint256 _lendAmt = _amount.mul(BASIS_PRECISION).div(_denominator);
         uint256 _borrowAmt = _lendAmt.mul(collatTarget).div(BASIS_PRECISION).mul(1e18).div(oPrice);
 
@@ -478,7 +451,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         if (_excessWant > 0) {
             _lendWant(_excessWant);
         }
-        _repayDebt();
+        //_repayDebt();
     }
 
     function getTotalAmounts() public view returns(uint256 totalWant, uint256 totalShort) {
@@ -514,14 +487,14 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         return totalWant;        
     }
 
-    function getDeployDenominator() public view returns(uint256) {
+    function _getDeployDenominator() internal view returns(uint256) {
         uint256 poolWeightWant = getPoolWeightWant();
         uint256 poolWeightShort = BASIS_PRECISION.sub(poolWeightWant);
         return BASIS_PRECISION.add((poolWeightWant.mul(collatTarget).div(poolWeightShort)));
     }
 
-    function getLendAmount(uint256 _amount) public view returns(uint256) {
-        uint256 _denominator = getDeployDenominator();
+    function _getLendAmount(uint256 _amount) internal view returns(uint256) {
+        uint256 _denominator = _getDeployDenominator();
         return _amount.mul(BASIS_PRECISION).div(_denominator);
     }
 
@@ -1061,11 +1034,11 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 balWant = want.balanceOf(address(this));
         uint256 _amountWant = totalWant * _amountShort / totalShort;
         // if we don't have enough want to add to LP, need to scale back amounts we add
+        
         if (balWant < _amountWant) {
             _amountWant = balWant;
             _amountShort = balWant * totalShort / totalWant;
         } 
-
         if (algebraPool.token0() == address(want)) {
             _amount0 = _amountWant;
             _amount1 = _amountShort;

@@ -174,9 +174,7 @@ def vault_mock_oracle(pm, gov, rewards, guardian, management, token):
 def strategy_before_set(strategist, keeper, vault, strategy_contract, gov, conf):
     # strategy = strategy_contract.deploy(vault, {'from': strategist,'gas_limit': 20000000})
     strategy = strategist.deploy(strategy_contract, vault)
-    insurance = strategist.deploy(StrategyInsurance, strategy)
     strategy.setKeeper(keeper)
-    strategy.setInsurance(insurance, {'from': gov})
     vault.addStrategy(strategy, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
     yield strategy
 
@@ -196,7 +194,7 @@ def grailManager(grail_manager_proxy_contract, strategy_before_set, grail_manage
 
 @pytest.fixture
 def strategy(strategy_before_set, grailManager, gov):
-    strategy_before_set.setGrailManager(grailManager, {'from': gov})
+    #strategy_before_set.setGrailManager(grailManager, {'from': gov})
     yield strategy_before_set
 
 @pytest.fixture(scope="session")
@@ -205,7 +203,7 @@ def RELATIVE_APPROX():
 
 @pytest.fixture
 def lp_token(conf):
-    yield interface.ERC20(conf['lp_token'])
+    yield interface.IAlgebraPool(conf['lp_token'])
 
 @pytest.fixture
 def lp_whale(accounts, conf):
@@ -225,7 +223,7 @@ def pid(conf):
 
 @pytest.fixture
 def lp_price(token, lp_token):
-    yield (token.balanceOf(lp_token) * 2) / lp_token.totalSupply()  
+    yield (token.balanceOf(lp_token) * 2) / lp_token.liquidity()  
 
 @pytest.fixture
 def deployed_vault(chain, accounts, gov, token, vault, strategy, user, strategist, amount, RELATIVE_APPROX):
@@ -292,9 +290,7 @@ def strategy_mock_oracle_before_set(token, amount, user, strategist, keeper, vau
     pool_address_provider.setPriceOracle(oracle, {'from': admin})
 
     strategy_mock_oracle = strategist.deploy(strategy_contract, vault_mock_oracle)
-    insurance = strategist.deploy(StrategyInsurance, strategy_mock_oracle)
     strategy_mock_oracle.setKeeper(keeper)
-    strategy_mock_oracle.setInsurance(insurance, {'from': gov})
 
     vault_mock_oracle.addStrategy(strategy_mock_oracle, 10_000, 0, 2 ** 256 - 1, 1_000, {"from": gov})
     yield strategy_mock_oracle
@@ -311,7 +307,7 @@ def grailManager_mock_oracle(grail_manager_proxy_contract, grail_manager_contrac
 
 @pytest.fixture
 def strategy_mock_oracle(strategy_mock_oracle_before_set, grailManager_mock_oracle, gov):
-    strategy_mock_oracle_before_set.setGrailManager(grailManager_mock_oracle, {'from': gov})
+    #strategy_mock_oracle_before_set.setGrailManager(grailManager_mock_oracle, {'from': gov})
     yield strategy_mock_oracle_before_set
 
 

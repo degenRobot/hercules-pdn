@@ -9,6 +9,29 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./CoreStrategyAaveGamma.sol";
 import "../../interfaces/aave/IAaveOracle.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+
+interface INFTHandler is IERC721Receiver {
+    function onNFTHarvest(
+        address operator,
+        address to,
+        uint256 tokenId,
+        uint256 grailAmount,
+        uint256 xGrailAmount
+    ) external returns (bool);
+
+    function onNFTAddToPosition(
+        address operator,
+        uint256 tokenId,
+        uint256 lpAmount
+    ) external returns (bool);
+
+    function onNFTWithdraw(
+        address operator,
+        uint256 tokenId,
+        uint256 lpAmount
+    ) external returns (bool);
+}
 
 interface IGrailManager {
     function deposit(uint256 _amount) external;
@@ -33,13 +56,13 @@ interface INitroPool {
 }
 
 
-contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
+contract USDCWETHTORCHV2 is CoreStrategyAaveGamma, INFTHandler {
     using SafeERC20 for IERC20;
     uint256 public tokenId;
     address public nitroPool;
     address public nftPool;
+    bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
 
-    event SetGrailManager(address grailManager);
     event SetAave(address oracle, address pool);
 
     constructor(address _vault)
@@ -60,7 +83,9 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
 
     function _setup() internal override {
         weth = 0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481;
-        gammaVault = IGammaVault(0xa6b3cea9E3D4b6f1BC5FA3fb1ec7d55A578473Ad);
+        // gammaVault = IGammaVault(0xa6b3cea9E3D4b6f1BC5FA3fb1ec7d55A578473Ad);
+
+        gammaVault = IGammaVault(0x343cA50235bd4dBefAcE13416EdB21FCB07f26a2);
         depositPoint = IUniProxy(0xD882a7AD21a6432B806622Ba5323716Fba5241A8);
         algebraPool = IAlgebraPool(0x35096c3cA17D12cBB78fA4262f3c6eff73ac9fFc);  
         clearance = IClearance(0xd359e08A60E2dDBFa1fc276eC11Ce7026642Ae71);
@@ -77,8 +102,7 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     }
 
     function balancePendingHarvest() public view override returns (uint256) {
-        (,uint256 grailRewards) = IGrailManager(grailManager).getPendingRewards();
-        return grailRewards;
+        return 0;
     }
 
     function _addToLP(uint256 _amountShort) internal override {
@@ -89,11 +113,8 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
         (uint256 _amount0, uint256 _amount1) = _getAmountsIn(_amountShort);
         uint256[4] memory _minAmounts;
         // Check Max deposit amounts 
-        (_amount0, _amount1) = _checkMaxAmts(_amount0, _amount1);
         // Deposit into Gamma Vault & Farm 
-        // depositPoint.deposit(_amount0, _amount1, address(grailManager), address(gammaVault), _minAmounts);
-        depositPoint.deposit(algebraPool.token0(), algebraPool.token1(), _amount0, _amount1, address(this), address(gammaVault), _minAmounts, nftPool, 0);
-        tokenId = INFTPool(IGrailManager(grailManager).pool()).lastTokenId();
+        depositPoint.deposit(algebraPool.token0(), algebraPool.token1(), _amount0, _amount1, address(gammaVault), _minAmounts, nftPool, 0);
 
 
     }
@@ -111,7 +132,7 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     }
 
     function claimHarvest() internal override {
-        IGrailManager(grailManager).harvest();
+        //IGrailManager(grailManager).harvest();
     }
 
     function countLpPooled() internal view override returns (uint256) {
@@ -122,12 +143,6 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
         return _amount;
     }
 
-    function setGrailManager(address _grailManager) external onlyAuthorized {
-        grailManager = _grailManager;
-        IERC20(address(wantShortLP)).safeApprove(_grailManager, type(uint256).max);
-        emit SetGrailManager(_grailManager);
-    }
-
     function setAave(address _oracle, address _pool) external onlyAuthorized {
         require(_oracle != address(0) && _pool != address(0), "invalid address");
         oracle = IAaveOracle(_oracle);
@@ -136,4 +151,62 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
         short.safeApprove(address(pool), type(uint256).max);
         emit SetAave(_oracle, _pool);
     }
+
+    function onERC721Received(
+        address, /*_operator*/
+        address _from,
+        uint256 _tokenId,
+        bytes calldata /*data*/
+    ) external override returns (bytes4) {
+        require(msg.sender == nftPool, "unexpected nft");
+        tokenId = _tokenId;
+        //nitroPool.approve(_from, _tokenId);
+        return _ERC721_RECEIVED;
+    }
+
+    function onNFTHarvest(
+        address _operator,
+        address _to,
+        uint256, /*tokenId*/
+        uint256, /*grailAmount*/
+        uint256 /*xGrailAmount*/
+    ) external override returns (bool) {
+        require(
+            _operator == address(this),
+            "caller is not the nft previous owner"
+        );
+
+        return true;
+    }
+
+    function onNFTAddToPosition(
+        address _operator,
+        uint256, /*tokenId*/
+        uint256 /*lpAmount*/
+    ) external override returns (bool) {
+        require(
+            _operator == address(this),
+            "caller is not the nft previous owner"
+        );
+        return true;
+    }
+
+    function onNFTWithdraw(
+        address _operator,
+        uint256 _tokenId,
+        uint256 /*lpAmount*/
+    ) external override returns (bool) {
+        require(msg.sender == nftPool, "unexpected nft");
+        require(
+            _operator == address(this),
+            "NFTHandler: caller is not the nft previous owner"
+        );
+        /*
+        if (!pool.exists(_tokenId)) {
+            tokenId = uint256(0);
+        }
+        */
+        return true;
+    }
+
 }
