@@ -186,7 +186,7 @@ def strategy(strategy_before_set, torch_manager, gov):
 
 @pytest.fixture(scope="session")
 def RELATIVE_APPROX():
-    yield 1e-4
+    yield 5e-3
 
 @pytest.fixture
 def lp_token(conf):

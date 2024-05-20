@@ -162,6 +162,8 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             uint256 _debtPayment
         )
     {
+        _harvestInternal();
+
         uint256 totalAssets = estimatedTotalAssets();
         uint256 totalDebt = _getTotalDebt();
         if (totalAssets > totalDebt) {
@@ -179,17 +181,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             _debtPayment = balanceOfWant();
             _loss = totalDebt.sub(totalAssets);
         }
-
-        _profit += _harvestInternal();
-
-        // Check if we're net loss or net profit
-        if (_loss >= _profit) {
-            _profit = 0;
-            _loss = _loss.sub(_profit);
-        } else {
-            _profit = _profit.sub(_loss);
-            _loss = 0;
-        }
     }
 
     function adjustPosition(uint256 _debtOutstanding) internal override {
@@ -200,6 +191,14 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 toInvest = _wantAvailable.sub(_debtOutstanding);
 
         if (toInvest > 0) {
+            if (balanceDeployed() > 0) {
+                uint256 _balBefore = balanceOfWant();
+                liquidateAllPositions();
+                uint256 _balAfter = balanceOfWant();
+                toInvest += _balAfter.sub(_balBefore);
+            }
+
+
             _deploy(toInvest);
         }
     }
@@ -229,18 +228,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         _path[0] = _token_in;
         _path[1] = _token_out;
 
-        /*
-        bool is_weth =
-            _token_in == address(weth) || _token_out == address(weth);
-        _path = new address[](is_weth ? 2 : 3);
-        _path[0] = _token_in;
-        if (is_weth) {
-            _path[1] = _token_out;
-        } else {
-            _path[1] = address(weth);
-            _path[2] = _token_out;
-        }
-        */
     }
 
     function approveContracts() internal {
@@ -310,10 +297,10 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         liquidatePosition(_amount);
     }
 
-    function liquidateAllToLend() internal {
+    function liquidateAllToWant() internal {
         _withdrawAllPooled();
         _removeAllLp();
-        _lendWant(balanceOfWant());
+        _redeemWant(balanceLend());
     }
 
     function liquidateAllPositions()
@@ -362,15 +349,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         _rebalanceCollateralInternal();
     }
 
-    /// rebalances RoboVault holding of short token vs LP to within target collateral range
-    // function rebalanceDebt() external onlyKeepers {
-    //     require(!isPaused);
-    //     uint256 debtRatio = calcDebtRatio();
-    //     require(debtRatio < debtLower || debtRatio > debtUpper);
-    //     require(_testPriceSource(priceSourceDiffKeeper));
-    //     _rebalanceDebtInternal();
-    // }
-
     function claimHarvest() internal virtual;
 
     /// called by keeper to harvest rewards and either repay debt
@@ -391,35 +369,13 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         virtual
         returns (bool)
     {
-        // TODO check that _amount + AMOUNT_OF_TOKENS_LENT < AMOUNT_OF_TOKENS_TO_LEND_MAX
         // There is no limit to how much we can supply
         return false;
     }
 
     function _rebalanceCollateralInternal() internal {
-        uint256 collatRatio = calcCollateral();
-        uint256 shortPos = balanceDebt();
-        uint256 lendPos = balanceLend();
-
-        if (collatRatio > collatTarget) {
-            uint256 adjAmount =
-                (shortPos.sub(lendPos.mul(collatTarget).div(BASIS_PRECISION)))
-                    .mul(BASIS_PRECISION)
-                    .div(BASIS_PRECISION.add(collatTarget));
-            /// remove some LP use 50% of withdrawn LP to repay debt and half to add to collateral
-            _withdrawLpRebalanceCollateral(adjAmount.mul(2));
-            emit CollatRebalance(collatRatio, adjAmount);
-        } else if (collatRatio < collatTarget) {
-            uint256 adjAmount =
-                ((lendPos.mul(collatTarget).div(BASIS_PRECISION)).sub(shortPos))
-                    .mul(BASIS_PRECISION)
-                    .div(BASIS_PRECISION.add(collatTarget));
-            uint256 borrowAmt = _borrowWantEq(adjAmount);
-            _redeemWant(adjAmount);
-            _addToLP(borrowAmt);
-            _depositLp();
-            emit CollatRebalance(collatRatio, adjAmount);
-        }
+       liquidateAllPositionsInternal();
+       _deploy(balanceOfWant());   
     }
 
 
@@ -439,20 +395,17 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 _denominator = BASIS_PRECISION.add((poolWeightWant.mul(collatTarget).div(poolWeightShort)));
 
         uint256 _lendAmt = _getLendAmount(_amount);
-        //uint256 _lendAmt = _amount.mul(BASIS_PRECISION).div(_denominator);
         uint256 _borrowAmt = _lendAmt.mul(collatTarget).div(BASIS_PRECISION).mul(1e18).div(oPrice);
 
         _lendWant(_lendAmt);
         _borrow(_borrowAmt);
         _addToLP(_borrowAmt);
-        _depositLp();
 
         // Any excess funds after should be returned back to AAVE 
         uint256 _excessWant = want.balanceOf(address(this));
         if (_excessWant > 0) {
             _lendWant(_excessWant);
         }
-        //_repayDebt();
     }
 
     function getTotalAmounts() public view returns(uint256 totalWant, uint256 totalShort) {
@@ -551,60 +504,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         return true;
     }
 
-    /**
-     * @notice
-     *  Assumes all balance is in Lend outside of a small amount of debt and short. Deploys
-     *  capital maintaining the collatRatioTarget
-     *
-     * @dev
-     *  Some crafty maths here:
-     *  B: borrow amount in short (Not total debt!)
-     *  L: Lend in want
-     *  Cr: Collateral Target
-     *  Po: Oracle price (short * Po = want)
-     *  Plp: LP Price
-     *  Di: Initial Debt in short
-     *  Si: Initial short balance
-     *
-     *  We want:
-     *  Cr = BPo / L
-     *  T = L + Plp(B + 2Si - Di)
-     *
-     *  Solving this for L finds:
-     *  B = (TCr - Cr*Plp(2Si-Di)) / (Po + Cr*Plp)
-     */
-    function _calcDeployment(uint256 _amount)
-        internal
-        returns (uint256 _lendNeeded, uint256 _borrow)
-    {
-        uint256 oPrice = getOraclePrice();
-        uint256 lpPrice = getLpPrice();
-        uint256 Si2 = balanceShort().mul(2);
-        uint256 Di = balanceDebtInShort();
-        uint256 CrPlp = collatTarget.mul(lpPrice);
-        uint256 numerator;
-
-        // NOTE: may throw if _amount * CrPlp > 1e70
-        if (Di > Si2) {
-            numerator = (
-                collatTarget.mul(_amount).mul(1e18).add(CrPlp.mul(Di.sub(Si2)))
-            )
-                .sub(oPrice.mul(BASIS_PRECISION).mul(Di));
-        } else {
-            numerator = (
-                collatTarget.mul(_amount).mul(1e18).sub(CrPlp.mul(Si2.sub(Di)))
-            )
-                .sub(oPrice.mul(BASIS_PRECISION).mul(Di));
-        }
-
-        _borrow = numerator.div(
-            BASIS_PRECISION.mul(oPrice.add(CrPlp.div(BASIS_PRECISION)))
-        );
-        _lendNeeded = _amount.sub(
-            (_borrow.add(Si2).sub(Di)).mul(lpPrice).div(1e18)
-        );
-    }
-
     function _getTotalDebt() internal view returns (uint256) {
         return vault.strategies(address(this)).totalDebt;
     }
@@ -685,11 +584,11 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             _liquidatedAmount = balanceOfWant().sub(balanceWant);
         } else {
             // liquidate all to lend
-            liquidateAllToLend();
+            liquidateAllToWant();
             // Only rebalance if more than 5% is being liquidated
             // to save on gas
             uint256 slippage = 0;
-            /*
+            
             if (stratPercent > 500) {
                 // swap to ensure the debt ratio isn't negatively affected
                 uint256 shortInShort = balanceShort();
@@ -709,13 +608,16 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
                     );
                 }
             }
-            */
+            
             _repayDebt();
 
-            // Redeploy the strat
-            //_deployFromLend(balanceDeployed.sub(_amountNeeded).add(slippage));
+            if (want.balanceOf(address(this)) > _amountNeeded) {
+                _deploy(want.balanceOf(address(this)).sub(_amountNeeded));
+            }
             _liquidatedAmount = balanceOfWant().sub(balanceWant);
             _loss = slippage;
+
+
         }
     }
 
@@ -727,7 +629,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     // calculate total value of vault assets
     function balanceDeployed() public view returns (uint256) {
         return
-            balanceLend().add(balanceLp()).add(balanceShortWantEq()).sub(
+            balanceLend().add(balanceLp()).sub(
                 balanceDebt()
             );
     }
@@ -741,40 +643,6 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     function calcCollateral() public view returns (uint256) {
         return balanceDebtOracle().mul(BASIS_PRECISION).div(balanceLend());
     }
-
-    /*
-    function getLpReserves()
-        public
-        view
-        returns (uint256 _wantInLp, uint256 _shortInLp)
-    {
-
-        (uint112 reserves0, uint112 reserves1,,) = wantShortLP.getReserves();
-        if (wantShortLP.token0() == address(want)) {
-            _wantInLp = uint256(reserves0);
-            _shortInLp = uint256(reserves1);
-        } else {
-            _wantInLp = uint256(reserves1);
-            _shortInLp = uint256(reserves0);
-        }
-    }
-
-    function getLpReservesAndFee() public view returns (uint256 _wantInLp, uint256 _shortInLp, uint256 _wantFeePercent, uint256 _shortFeePercent) {
-        (uint112 reserves0, uint112 reserves1, uint16 fee0, uint16 fee1) = wantShortLP.getReserves();
-        
-        if (wantShortLP.token0() == address(want)){
-            _wantInLp = uint256(reserves0);
-            _shortInLp = uint256(reserves1);
-            _wantFeePercent = uint256(fee0);
-            _shortFeePercent = uint256(fee1);
-        } else {
-            _wantInLp = uint256(reserves1);
-            _shortInLp = uint256(reserves0);
-            _wantFeePercent = uint256(fee1);
-            _shortFeePercent = uint256(fee0);
-        }
-    }
-    */
 
     function convertShortToWantLP(uint256 _amountShort)
         internal
@@ -1004,7 +872,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
     // Farm-specific methods
     function _depositLp() internal virtual {
-        
+
     }
 
     function _withdrawAllPooled() internal virtual {
@@ -1033,9 +901,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     {
         if (_amount == 0) return (0);
         uint256 amountOutMin = convertWantToShortLP(_amount);
-        
         uint256 shortBalanceBefore = short.balanceOf(address(this));
-
         uint256 _minSwap = 1000;
         if (_amount < _minSwap || amountOutMin < _minSwap) {
             return 0;

@@ -13,6 +13,9 @@ import "../../libraries/proxy/utils/Initializable.sol";
 import "../../libraries/proxy/utils/UUPSUpgradeable.sol";
 import "../../interfaces/camelot/ICamelotRouter.sol";
 
+
+import "../../interfaces/camelot/ICamelotRouter.sol";
+
 import {IGammaVault} from "../../interfaces/gamma/IGammaVault.sol";
 import {IUniProxy} from "../../interfaces/gamma/IUniProxy.sol";
 import {IClearance} from "../../interfaces/gamma/IClearance.sol";
@@ -78,7 +81,7 @@ interface IXMetis {
     function balanceOf(address owner) external view returns (uint256);
     function minRedeemDuration() external view returns (uint256);
     function redeem(uint256 xMetisAmount, uint256 duration) external;
-    function getUserRedeemLength(address user) external view returns (uint256);
+    function getUserRedeemsLength(address user) external view returns (uint256);
     function userRedeems(address user, uint256 index) external view returns (
         uint256 grailAmount,// GRAIL amount to receive when vesting has ended
         uint256 xGrailAmount, // xGRAIL amount to redeem
@@ -115,6 +118,10 @@ contract TorchManagerV2 is INFTHandler {
     address public nftPool;
     IERC20 public want;
     IERC20 public short;
+
+    IERC20 public metis;
+    IERC20 public torch;
+
     address public strategy;
 
     address public strategist;
@@ -123,6 +130,7 @@ contract TorchManagerV2 is INFTHandler {
     IGammaVault public gammaVault;
     IClearance public clearance;
     IUniProxy public depositPoint;
+    ICamelotRouter public router;
 
 
     bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
@@ -139,11 +147,21 @@ contract TorchManagerV2 is INFTHandler {
         nftPool = 0x69E2BcCaFD7dbC4CBfB3aE2cCFe2bAC2101f668d;
         nitroPool = 0x7F404c937b0cE51773B32112467566E6549ebC0F;
 
+        metis = IERC20(0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481);
+        torch = IERC20(0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF);
+
+        router = ICamelotRouter(0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C);
+
         want.approve(address(gammaVault), type(uint256).max);        
         IERC20(address(short)).approve(address(gammaVault), type(uint256).max);   
 
         want.approve(address(depositPoint), type(uint256).max);        
         IERC20(address(short)).approve(address(depositPoint), type(uint256).max);   
+
+        metis.approve(address(router), type(uint256).max);
+        torch.approve(address(router), type(uint256).max);
+
+
 
     }
 
@@ -184,14 +202,14 @@ contract TorchManagerV2 is INFTHandler {
 
 
     function addToLp(uint256 _amount0, uint256 _amount1) external onlyStrategy {
-        if (tokenId != 0) {
+        if (tokenId != 0 && countLpPooled() > 0) {
             INitroPool(nitroPool).withdraw(tokenId);
             _removeAllLp();
         }
 
         uint256[4] memory _minAmounts;
         depositPoint.deposit(algebraPool.token0(), algebraPool.token1(), _amount0, _amount1, address(gammaVault), _minAmounts, nftPool, 0);
-        _depositLp();
+        _stakeInNitro();
         // Transfer any unspent want & short back to strategy
     }
 
@@ -202,17 +220,10 @@ contract TorchManagerV2 is INFTHandler {
         }
     }
 
-    function _depositLp() internal {
+    function _stakeInNitro() internal {
         //INFTPoolTorch(nftPool).approve(nitroPool, lpBalance);
         bytes memory _data = abi.encode(address(this));
         INFTPoolTorch(nftPool).safeTransferFrom(address(this), nitroPool, tokenId, _data);
-    }
-
-    function _withdrawAllPooled() internal {
-        // This should be amount of LP in Nitro Pool (skipped for now as we are not using Nitro Pool)
-        uint256 _amount = countLpPooled();
-        if (_amount > 0)
-            INitroPool(nitroPool).withdraw(tokenId);
     }
 
     function _removeAllLp() internal {
@@ -223,6 +234,9 @@ contract TorchManagerV2 is INFTHandler {
 
         want.transfer(address(strategy), want.balanceOf(address(this)));
         short.transfer(address(strategy), short.balanceOf(address(this)));
+
+        // set token ID = 0 ??? 
+        tokenId = 0;
     }
 
     function onERC721Received(
@@ -296,12 +310,30 @@ contract TorchManagerV2 is INFTHandler {
         return _amount;
     }
 
+    function _finaliseRedeems(address _redeemAddress) internal {
+        uint256 _nRedeems = IXMetis(_redeemAddress).getUserRedeemsLength(address(this));
+
+        if (_nRedeems == 0) {
+            return;
+        }
+
+        for (uint256 i = 0; i < _nRedeems; i++) {
+            (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_redeemAddress).userRedeems(address(this), i);
+            if (_endTime < block.timestamp) {
+                IXMetis(_redeemAddress).finalizeRedeem(i);
+            } else {
+                return;
+            }
+        }
+
+    }
+
     function harvest() external onlyStrategy {
-        //IGrailManager(grailManager).harvest();
         if (tokenId == 0) {
             return;
         }
 
+        // NOTE : Harvest XMetis & X Torch from Nitro Pool
         INitroPool(nitroPool).harvest();
 
         address _xMetis = 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996;
@@ -310,6 +342,10 @@ contract TorchManagerV2 is INFTHandler {
         address _xTorch = 0xF192897fC39bF766F1011a858dE964457bcA5832;
         uint256 _xTorchBalance = IXMetis(_xTorch).balanceOf(address(this));
 
+        // NOTE : This will finalize any existing redeems that are ready to be finalised
+        _finaliseRedeems(_xMetis);
+        _finaliseRedeems(_xTorch);
+
         if (_xMetisBalance > 0 ) {
             IXMetis(_xMetis).redeem(_xMetisBalance, IXMetis(_xMetis).minRedeemDuration());
         }
@@ -317,23 +353,24 @@ contract TorchManagerV2 is INFTHandler {
             IXMetis(_xTorch).redeem(_xTorchBalance, IXMetis(_xTorch).minRedeemDuration());
         }
 
-        uint256 _xMetisRedeemLength = IXMetis(_xMetis).getUserRedeemLength(address(this));
-        for (uint256 i = 0; i < _xMetisRedeemLength; i++) {
-            (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_xMetis).userRedeems(address(this), i);
-            if (_endTime < block.timestamp) {
-                IXMetis(_xMetis).finalizeRedeem(i);
-            } else {
-                break;
-            }
-        }
-        uint256 _xTorchRedeemLength = IXMetis(_xTorch).getUserRedeemLength(address(this));
-        for (uint256 i = 0; i < _xTorchRedeemLength; i++) {
-            (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_xTorch).userRedeems(address(this), i);
-            if (_endTime < block.timestamp) {
-                IXMetis(_xTorch).finalizeRedeem(i);
-            } else {
-                break;
-            }
+        uint256 _metisBalance = metis.balanceOf(address(this));
+        uint256 _torchBalance = torch.balanceOf(address(this));
+
+        if (_metisBalance > 1000) {
+            address[] memory path;
+            path = new address[](2);
+            path[0] = address(metis);
+            path[1] = address(want);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
+        } 
+
+        if (_torchBalance > 1000) {
+            address[] memory path;
+            path = new address[](3);
+            path[0] = address(torch);
+            path[1] = address(metis);
+            path[2] = address(want);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
         }
 
     }
