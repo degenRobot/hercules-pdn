@@ -1,7 +1,7 @@
 import pytest
 from brownie import config
 from brownie import Contract
-from brownie import interface, StrategyInsurance, TorchManager, GrailManagerProxy, USDCWETHTORCHV2 ,accounts
+from brownie import interface, StrategyInsurance, TorchManagerV2, GrailManagerProxy, USDCWETHTORCHV2 ,accounts
 from tests.helper import encode_function_data
 
 TORCH_PRICE = 3000
@@ -40,12 +40,8 @@ CONFIG = {
 }
 
 @pytest.fixture
-def grail_manager_contract():
-    yield  TorchManager
-
-@pytest.fixture
-def grail_manager_proxy_contract():
-    yield GrailManagerProxy
+def torch_manager_contract():
+    yield  TorchManagerV2
 
 @pytest.fixture
 def strategy_contract():
@@ -179,22 +175,13 @@ def strategy_before_set(strategist, keeper, vault, strategy_contract, gov, conf)
     yield strategy
 
 @pytest.fixture
-def grailManager(grail_manager_proxy_contract, strategy_before_set, grail_manager_contract, gov, conf) : 
-    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
-    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
-    
-    #grailManager = gov.deploy(grail_manager_contract)
-
-    # grailManager.initialize(gov, strategy, grailConfig, {'from': gov})
-    #grailConfig = [strategy_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster]
-    grailManager = grail_manager_contract.deploy(gov, strategy_before_set, strategy_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
-    #encoded_initializer_function = encode_function_data(grailManager.initialize, gov, strategy_before_set, grailConfig)
-    #grailManagerProxy = gov.deploy(grail_manager_proxy_contract, grailManager.address, encoded_initializer_function)
-    yield grailManager
+def torch_manager(torch_manager_contract, strategy_before_set, gov, conf) : 
+    torch_manager = torch_manager_contract.deploy(strategy_before_set, {'from': gov})
+    yield torch_manager
 
 @pytest.fixture
-def strategy(strategy_before_set, grailManager, gov):
-    #strategy_before_set.setGrailManager(grailManager, {'from': gov})
+def strategy(strategy_before_set, torch_manager, gov):
+    strategy_before_set.setTorchManager(torch_manager, {'from': gov})
     yield strategy_before_set
 
 @pytest.fixture(scope="session")
@@ -296,18 +283,15 @@ def strategy_mock_oracle_before_set(token, amount, user, strategist, keeper, vau
     yield strategy_mock_oracle
 
 @pytest.fixture
-def grailManager_mock_oracle(grail_manager_proxy_contract, grail_manager_contract, gov, strategy_mock_oracle_before_set, conf) : 
-    
-    yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
-    xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
-    
-    grailManager = grail_manager_contract.deploy(gov, strategy_mock_oracle_before_set, strategy_mock_oracle_before_set.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
+def torchManager_mock_oracle(torch_manager_contract, gov, strategy_mock_oracle_before_set, conf) : 
+        
+    torchManager_mock_oracle = torch_manager_contract.deploy(strategy_mock_oracle_before_set, {'from': gov})
 
-    yield grailManager
+    yield torchManager_mock_oracle
 
 @pytest.fixture
-def strategy_mock_oracle(strategy_mock_oracle_before_set, grailManager_mock_oracle, gov):
-    #strategy_mock_oracle_before_set.setGrailManager(grailManager_mock_oracle, {'from': gov})
+def strategy_mock_oracle(strategy_mock_oracle_before_set, torchManager_mock_oracle, gov):
+    strategy_mock_oracle_before_set.setTorchManager(torchManager_mock_oracle, {'from': gov})
     yield strategy_mock_oracle_before_set
 
 

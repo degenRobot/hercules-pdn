@@ -11,60 +11,19 @@ import "./CoreStrategyAaveGamma.sol";
 import "../../interfaces/aave/IAaveOracle.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
-interface INFTHandler is IERC721Receiver {
-    function onNFTHarvest(
-        address operator,
-        address to,
-        uint256 tokenId,
-        uint256 grailAmount,
-        uint256 xGrailAmount
-    ) external returns (bool);
 
-    function onNFTAddToPosition(
-        address operator,
-        uint256 tokenId,
-        uint256 lpAmount
-    ) external returns (bool);
-
-    function onNFTWithdraw(
-        address operator,
-        uint256 tokenId,
-        uint256 lpAmount
-    ) external returns (bool);
-}
-
-interface IGrailManager {
-    function deposit(uint256 _amount) external;
-    function withdraw(uint256 _amount) external;
+interface ITorchManager {
     function harvest() external;
-    function balance() external view returns (uint256 _amount);
-    function getPendingRewards() external view returns (uint256, uint256);
-    function pool() external view returns (address);
-}
-
-interface INFTPool {
-    function getStakingPosition(uint256 _tokenId) external view returns (uint256 amount, uint256 amountWithMultiplier, uint256 startLockTime,
-    uint256 lockDuration, uint256 lockMultiplier, uint256 rewardDebt,
-    uint256 boostPoints, uint256 totalMultiplier);
-    function lastTokenId() external view returns (uint256);
-    function withdrawFromPosition(uint256 _tokenId, uint256 _amount) external;
-    function approve(address to, uint256 tokenId) external;
+    function addToLp(uint256 _amount0, uint256 _amount1) external;
+    function withdrawLp() external;
+    function countLpPooled() external view returns (uint256);
 
 }
 
-interface INitroPool {
-    function withdraw(uint256 _amount) external;
-
-}
-
-
-contract USDCWETHTORCHV2 is CoreStrategyAaveGamma, INFTHandler {
+contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     using SafeERC20 for IERC20;
-    uint256 public tokenId;
-    address public nitroPool;
-    address public nftPool;
-    bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
 
+    ITorchManager public torchManager;
     event SetAave(address oracle, address pool);
 
     constructor(address _vault)
@@ -91,16 +50,6 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma, INFTHandler {
         depositPoint = IUniProxy(0xD882a7AD21a6432B806622Ba5323716Fba5241A8);
         algebraPool = IAlgebraPool(0x35096c3cA17D12cBB78fA4262f3c6eff73ac9fFc);  
         clearance = IClearance(0xd359e08A60E2dDBFa1fc276eC11Ce7026642Ae71);
-
-        nftPool = 0x69E2BcCaFD7dbC4CBfB3aE2cCFe2bAC2101f668d;
-        nitroPool = 0x7F404c937b0cE51773B32112467566E6549ebC0F;
-
-        want.approve(address(gammaVault), type(uint256).max);        
-        IERC20(address(short)).approve(address(gammaVault), type(uint256).max);   
-
-        want.approve(address(depositPoint), type(uint256).max);        
-        IERC20(address(short)).approve(address(depositPoint), type(uint256).max);   
-
     }
 
     function balancePendingHarvest() public view override returns (uint256) {
@@ -108,50 +57,54 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma, INFTHandler {
     }
 
     function _addToLP(uint256 _amountShort) internal override {
-        if (tokenId != 0) {
-            INitroPool(nitroPool).withdraw(tokenId);
+        if (countLpPooled() > 0) {
+            torchManager.withdrawLp();
         }
 
         (uint256 _amount0, uint256 _amount1) = _getAmountsIn(_amountShort);
-        uint256[4] memory _minAmounts;
-        // Check Max deposit amounts 
-        // Deposit into Gamma Vault & Farm 
-        depositPoint.deposit(algebraPool.token0(), algebraPool.token1(), _amount0, _amount1, address(gammaVault), _minAmounts, nftPool, 0);
+        if (algebraPool.token0() == address(want)) {
+            want.transfer(address(torchManager), _amount0);
+            short.transfer(address(torchManager), _amount1);
+        }
+        else {
+            want.transfer(address(torchManager), _amount1);
+            short.transfer(address(torchManager), _amount0);
+        }
 
+        torchManager.addToLp(_amount0, _amount1);
 
     }
 
 
-    function _depositLp() internal override {
-        uint256 lpBalance = wantShortLP.balanceOf(address(this));
-        //IGrailManager(grailManager).deposit(lpBalance);
-    }
 
-    function _removeAllLp() internal override {
-        uint256 _shares = countLpPooled();
-        INFTPool(nftPool).withdrawFromPosition(tokenId, countLpPooled());
-        uint256[4] memory _minAmounts;
-        gammaVault.withdraw(_shares, address(this), address(this), _minAmounts);
-    }
 
     function _withdrawAllPooled() internal override {
         // This should be amount of LP in Nitro Pool (skipped for now as we are not using Nitro Pool)
-        // uint256 _amount;
-        // if (_amount > 0)
-        //     INitroPool(nitroPool).withdraw(_amount);
-        //     INFTPool(nftPool).withdrawFromPosition(tokenId, _amount);
+        if (countLpPooled() > 0) {
+            torchManager.withdrawLp();
+        }
+    }
+
+    function _removeAllLp() internal override {
+        
     }
 
     function claimHarvest() internal override {
-        //IGrailManager(grailManager).harvest();
+        torchManager.harvest();
     }
 
     function countLpPooled() internal view override returns (uint256) {
-        if (tokenId == 0) {
-            return 0;
-        }
-        (uint256 _amount, , , , , , , ) = INFTPool(nftPool).getStakingPosition(tokenId);
-        return _amount;
+        
+        // Return 0 if torchManager is not set
+        if (address(torchManager) == address(0)) return 0;
+
+
+        return torchManager.countLpPooled();
+    }
+
+    function setTorchManager(address _torchManager) external onlyAuthorized {
+        require(_torchManager != address(0), "invalid address");
+        torchManager = ITorchManager(_torchManager);
     }
 
     function setAave(address _oracle, address _pool) external onlyAuthorized {
@@ -161,63 +114,6 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma, INFTHandler {
         want.safeApprove(address(pool), type(uint256).max);
         short.safeApprove(address(pool), type(uint256).max);
         emit SetAave(_oracle, _pool);
-    }
-
-    function onERC721Received(
-        address, /*_operator*/
-        address _from,
-        uint256 _tokenId,
-        bytes calldata /*data*/
-    ) external override returns (bytes4) {
-        require(msg.sender == nftPool, "unexpected nft");
-        tokenId = _tokenId;
-        INFTPool(nftPool).approve(_from, _tokenId);
-        return _ERC721_RECEIVED;
-    }
-
-    function onNFTHarvest(
-        address _operator,
-        address _to,
-        uint256, /*tokenId*/
-        uint256, /*grailAmount*/
-        uint256 /*xGrailAmount*/
-    ) external override returns (bool) {
-        require(
-            _operator == address(this),
-            "caller is not the nft previous owner"
-        );
-
-        return true;
-    }
-
-    function onNFTAddToPosition(
-        address _operator,
-        uint256, /*tokenId*/
-        uint256 /*lpAmount*/
-    ) external override returns (bool) {
-        require(
-            _operator == address(this),
-            "caller is not the nft previous owner"
-        );
-        return true;
-    }
-
-    function onNFTWithdraw(
-        address _operator,
-        uint256 _tokenId,
-        uint256 /*lpAmount*/
-    ) external override returns (bool) {
-        require(msg.sender == nftPool, "unexpected nft");
-        require(
-            _operator == address(this),
-            "NFTHandler: caller is not the nft previous owner"
-        );
-        /*
-        if (!pool.exists(_tokenId)) {
-            tokenId = uint256(0);
-        }
-        */
-        return true;
     }
 
 }

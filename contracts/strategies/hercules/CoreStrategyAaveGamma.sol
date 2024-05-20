@@ -445,6 +445,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         _lendWant(_lendAmt);
         _borrow(_borrowAmt);
         _addToLP(_borrowAmt);
+        _depositLp();
 
         // Any excess funds after should be returned back to AAVE 
         uint256 _excessWant = want.balanceOf(address(this));
@@ -901,6 +902,16 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
     function _redeemWant(uint256 _redeem_amount) internal {
         if (_redeem_amount == 0) return;
+
+        uint256 _lendBal = balanceLend();
+        uint256 _debtBal = balanceDebt();
+
+        uint256 _maxRedeem = _lendBal.sub(_debtBal.mul(BASIS_PRECISION).div(collatLimit));
+
+        if (_redeem_amount > _maxRedeem) {
+            _redeem_amount = _maxRedeem;
+        }
+
         pool.withdraw(address(want), _redeem_amount, address(this));
     }
 
@@ -992,7 +1003,9 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     }
 
     // Farm-specific methods
-    function _depositLp() internal virtual;
+    function _depositLp() internal virtual {
+        
+    }
 
     function _withdrawAllPooled() internal virtual {
     }
@@ -1022,6 +1035,11 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 amountOutMin = convertWantToShortLP(_amount);
         
         uint256 shortBalanceBefore = short.balanceOf(address(this));
+
+        uint256 _minSwap = 1000;
+        if (_amount < _minSwap || amountOutMin < _minSwap) {
+            return 0;
+        }
 
         router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             _amount,
@@ -1053,6 +1071,11 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         if (_amountShort == 0) return(0,0);
         _amountWant = convertShortToWantLP(_amountShort);
 
+        uint256 _minSwap = 1000;
+        if (_amountShort < _minSwap || _amountWant < _minSwap) {
+            return (0,0);
+        }
+
         uint256 wantBalanceBefore = want.balanceOf(address(this));
 
         router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
@@ -1077,10 +1100,15 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 amountInWant = convertShortToWantLP(_amountOut);
         uint256 amountInExactWant = getAmountIn(_amountOut);
 
+        uint256 _minSwap = 1000;
+        if (amountInExactWant < _minSwap || _amountOut < _minSwap) {
+            return (0);
+        }
+
         // Sub Optimal implementation given camelot does not have SwapTokensForExactTokens
         router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
             amountInExactWant,
-            _amountOut,
+            _amountOut.mul(slippageAdj).div(BASIS_PRECISION),
             getTokenOutPath(address(want), address(short)), // _pathWantToShort(),
             address(this),
             address(this),
