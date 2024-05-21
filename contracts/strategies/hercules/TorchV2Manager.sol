@@ -161,8 +161,6 @@ contract TorchManagerV2 is INFTHandler {
         metis.approve(address(router), type(uint256).max);
         torch.approve(address(router), type(uint256).max);
 
-
-
     }
 
     modifier onlyManager() {
@@ -221,7 +219,6 @@ contract TorchManagerV2 is INFTHandler {
     }
 
     function _stakeInNitro() internal {
-        //INFTPoolTorch(nftPool).approve(nitroPool, lpBalance);
         bytes memory _data = abi.encode(address(this));
         INFTPoolTorch(nftPool).safeTransferFrom(address(this), nitroPool, tokenId, _data);
     }
@@ -234,8 +231,7 @@ contract TorchManagerV2 is INFTHandler {
 
         want.transfer(address(strategy), want.balanceOf(address(this)));
         short.transfer(address(strategy), short.balanceOf(address(this)));
-
-        // set token ID = 0 ??? 
+        // NOTE : we set TokenId back to 0 -> no LP is pooled will return balance 0 in countLpPooled
         tokenId = 0;
     }
 
@@ -245,7 +241,7 @@ contract TorchManagerV2 is INFTHandler {
         uint256 _tokenId,
         bytes calldata /*data*/
     ) external override returns (bytes4) {
-        //require((msg.sender == nftPool || msg.sender == nitroPool), "unexpected nft");
+        require((msg.sender == nftPool || msg.sender == nitroPool), "unexpected nft");
         if (msg.sender == nftPool) {
             INFTPoolTorch(nftPool).approve(_from, _tokenId);
             tokenId = _tokenId;
@@ -260,10 +256,10 @@ contract TorchManagerV2 is INFTHandler {
         uint256, /*grailAmount*/
         uint256 /*xGrailAmount*/
     ) external override returns (bool) {
-        // require(
-        //     _operator == address(this),
-        //     "caller is not the nft previous owner"
-        // );
+        require(
+            _operator == address(this),
+            "caller is not the nft previous owner"
+        );
 
         return true;
     }
@@ -294,11 +290,7 @@ contract TorchManagerV2 is INFTHandler {
             _operator == address(this),
             "NFTHandler: caller is not the nft previous owner"
         );
-        /*
-        if (!pool.exists(_tokenId)) {
-            tokenId = uint256(0);
-        }
-        */
+
         return true;
     }
 
@@ -316,7 +308,6 @@ contract TorchManagerV2 is INFTHandler {
         if (_nRedeems == 0) {
             return;
         }
-
         for (uint256 i = 0; i < _nRedeems; i++) {
             (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_redeemAddress).userRedeems(address(this), i);
             if (_endTime < block.timestamp) {
@@ -341,7 +332,6 @@ contract TorchManagerV2 is INFTHandler {
 
         address _xTorch = 0xF192897fC39bF766F1011a858dE964457bcA5832;
         uint256 _xTorchBalance = IXMetis(_xTorch).balanceOf(address(this));
-
         // NOTE : This will finalize any existing redeems that are ready to be finalised
         _finaliseRedeems(_xMetis);
         _finaliseRedeems(_xTorch);
@@ -361,7 +351,7 @@ contract TorchManagerV2 is INFTHandler {
             path = new address[](2);
             path[0] = address(metis);
             path[1] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
+            // router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
         } 
 
         if (_torchBalance > 1000) {
@@ -370,7 +360,7 @@ contract TorchManagerV2 is INFTHandler {
             path[0] = address(torch);
             path[1] = address(metis);
             path[2] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
+            // router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
         }
 
     }
