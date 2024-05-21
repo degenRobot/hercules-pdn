@@ -56,12 +56,12 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
         return 0;
     }
 
-    function _addToLP(uint256 _amountShort) internal override {
+    function _addToLP(uint256 _amountWant, uint256 _amountShort) internal override {
         if (countLpPooled() > 0) {
             torchManager.withdrawLp();
         }
 
-        (uint256 _amount0, uint256 _amount1) = _getAmountsIn(_amountShort);
+        (uint256 _amount0, uint256 _amount1) = _getAmountsIn(_amountWant, _amountShort);
         if (algebraPool.token0() == address(want)) {
             want.transfer(address(torchManager), _amount0);
             short.transfer(address(torchManager), _amount1);

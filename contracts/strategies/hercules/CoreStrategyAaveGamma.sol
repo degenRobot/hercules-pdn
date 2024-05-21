@@ -396,16 +396,17 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
         uint256 _lendAmt = _getLendAmount(_amount);
         uint256 _borrowAmt = _lendAmt.mul(collatTarget).div(BASIS_PRECISION).mul(1e18).div(oPrice);
+        uint256 _maxWant = _amount.sub(_lendAmt);
 
         _lendWant(_lendAmt);
         _borrow(_borrowAmt);
-        _addToLP(_borrowAmt);
+        _addToLP(_maxWant, _borrowAmt);
 
         // Any excess funds after should be returned back to AAVE 
-        uint256 _excessWant = want.balanceOf(address(this));
-        if (_excessWant > 0) {
-            _lendWant(_excessWant);
-        }
+        // uint256 _excessWant = want.balanceOf(address(this));
+        // if (_excessWant > 0) {
+        //     _lendWant(_excessWant);
+        // }
     }
 
     function getTotalAmounts() public view returns(uint256 totalWant, uint256 totalShort) {
@@ -840,7 +841,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         return(_amount0, _amount1);
     }
 
-    function _getAmountsIn(uint256 _amountShort) internal view returns (uint256 _amount0, uint256 _amount1) {
+    function _getAmountsIn(uint256 _maxWant, uint256 _amountShort) internal view returns (uint256 _amount0, uint256 _amount1) {
         uint256 totalWant; 
         uint256 totalShort;
         if (algebraPool.token0() == address(want)) {
@@ -852,9 +853,9 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 _amountWant = totalWant * _amountShort / totalShort;
         // if we don't have enough want to add to LP, need to scale back amounts we add
         
-        if (balWant < _amountWant) {
-            _amountWant = balWant;
-            _amountShort = balWant * totalShort / totalWant;
+        if (_maxWant < _amountWant) {
+            _amountWant = _maxWant;
+            _amountShort = _maxWant * totalShort / totalWant;
         } 
         if (algebraPool.token0() == address(want)) {
             _amount0 = _amountWant;
@@ -866,7 +867,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
     }
 
-    function _addToLP(uint256 _amountShort) internal virtual {
+    function _addToLP(uint256 _maxWant, uint256 _amountShort) internal virtual {
 
     }
 

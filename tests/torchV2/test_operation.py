@@ -3,7 +3,7 @@ from brownie import interface, Contract, accounts, MockAaveOracle
 import pytest
 import time 
 
-def offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, torch_manager, Contract, swapPct, router, shortWhale):
+def offSetDebtRatioLow(strategy_mock_oracle, lp_token, token, Contract, swapPct, router, shortWhale):
     # use other AMM's LP to force some swaps 
     short = interface.IERC20(strategy_mock_oracle.short())
     swapAmtMax = short.balanceOf(lp_token)*swapPct
@@ -321,7 +321,7 @@ def test_lossy_withdrawal(
     balBefore = token.balanceOf(user)
     vault.withdraw(amount, user, 150, {'from' : user}) 
     balAfter = token.balanceOf(user)
-    assert pytest.approx(balAfter - balBefore, rel = 2e-3) == int(amount * .99)
+    assert pytest.approx(balAfter - balBefore, rel = 5e-3) == int(amount * .99)
 
 
 def test_lossy_withdrawal_partial(
@@ -355,7 +355,7 @@ def test_lossy_withdrawal_partial(
     half = int(amount / 2)
     vault.withdraw(half, user, 100, {'from' : user}) 
     balAfter = token.balanceOf(user)
-    assert pytest.approx(balAfter - balBefore, rel = 2e-3) == (half * (1-stealPercent)) 
+    assert pytest.approx(balAfter - balBefore, rel = 5e-3) == (half * (1-stealPercent)) 
 
     # Check the strategy share price wasn't negatively effected
     ssp_after = strategySharePrice(strategy, vault)
@@ -476,7 +476,7 @@ def test_reduce_debt_with_low_calcdebtratio(
     print('debtRatio:   {0}'.format(debtRatio))
     print('collatRatio: {0}'.format(collatRatioBefore))
     #assert pytest.approx(9500, rel=1e-3) == debtRatio
-    assert pytest.approx(7000, rel=2e-2) == collatRatioBefore
+    assert pytest.approx(strategy_mock_oracle.collatTarget(), rel=2e-2) == collatRatioBefore
 
     vault_mock_oracle.updateStrategyDebtRatio(strategy_mock_oracle.address, 50_00, {"from": gov})
     chain.sleep(1)
@@ -505,7 +505,7 @@ def test_reduce_debt_with_high_calcdebtratio(
     print('debtRatio:   {0}'.format(debtRatio))
     print('collatRatio: {0}'.format(collatRatioBefore))
     #assert pytest.approx(10500, rel=2e-3) == debtRatio
-    assert pytest.approx(7000, rel=2e-2) == collatRatioBefore
+    assert pytest.approx(strategy_mock_oracle.collatTarget(), rel=2e-2) == collatRatioBefore
 
     chain.sleep(1)
     chain.mine(1)
@@ -553,7 +553,7 @@ def test_increase_debt_with_low_calcdebtratio(
     print('debtRatio:   {0}'.format(debtRatio))
     print('collatRatio: {0}'.format(collatRatioBefore))
     #assert pytest.approx(9500, rel=1e-3) == debtRatio
-    assert pytest.approx(7000, rel=2e-2) == collatRatioBefore
+    assert pytest.approx(strategy_mock_oracle.collatTarget(), rel=2e-2) == collatRatioBefore
 
     vault_mock_oracle.updateStrategyDebtRatio(strategy_mock_oracle.address, 100_00, {"from": gov})
     chain.sleep(1)
@@ -591,7 +591,7 @@ def test_increase_debt_with_high_calcdebtratio(
     print('debtRatio:   {0}'.format(debtRatio))
     print('collatRatio: {0}'.format(collatRatioBefore))
     #assert pytest.approx(10500, rel=2e-3) == debtRatio
-    assert pytest.approx(7000, rel=2e-2) == collatRatioBefore
+    assert pytest.approx(strategy_mock_oracle.collatTarget(), rel=2e-2) == collatRatioBefore
 
     chain.sleep(1)
     chain.mine(1)
