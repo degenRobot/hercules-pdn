@@ -24,12 +24,11 @@ def test_vault_shutdown_can_withdraw(
     chain.mine(1)
     delta_debt = strategy.balanceDebt() - debt_before
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount - delta_debt
-
     ## Set Emergency
     vault.setEmergencyShutdown(True)
 
     ## Withdraw (does it work, do you get what you expect)
-    vault.withdraw({"from": user})
+    vault.withdraw(amount *.95, {"from": user})
 
     assert pytest.approx(token.balanceOf(user), rel=RELATIVE_APPROX) == amount - delta_debt
 

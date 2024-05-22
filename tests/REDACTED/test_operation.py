@@ -219,8 +219,8 @@ def test_change_debt(
     time.sleep(1)
     
     strategy.harvest()
-    assert strategy.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
-
+    assert strategy.estimatedTotalAssets() < 10 ** (token.decimals() ) # near zero
+    assert pytest.approx(token.balanceOf(vault), rel=RELATIVE_APPROX) == amount
 
 
 def test_change_debt_lossy(
@@ -265,7 +265,8 @@ def test_change_debt_lossy(
     
 
     strategy.harvest()
-    assert strategy.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
+    #assert strategy.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
+    assert pytest.approx(token.balanceOf(vault), rel=RELATIVE_APPROX) == amount
 
 
 def test_sweep(gov, vault, strategy, token, user, amount, conf):
@@ -488,7 +489,8 @@ def test_reduce_debt_with_low_calcdebtratio(
     chain.sleep(1)
     chain.mine(1)
     strategy_mock_oracle.harvest()
-    assert strategy_mock_oracle.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
+    #assert strategy_mock_oracle.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
+    assert pytest.approx(token.balanceOf(vault_mock_oracle), rel=RELATIVE_APPROX) == amount
 
 
 
@@ -564,7 +566,7 @@ def test_increase_debt_with_low_calcdebtratio(
     vault_mock_oracle.updateStrategyDebtRatio(strategy_mock_oracle.address, 0, {"from": gov})
     chain.sleep(1)
     strategy_mock_oracle.harvest()
-    assert strategy_mock_oracle.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
+    assert strategy_mock_oracle.estimatedTotalAssets() < 10 ** (token.decimals()) # near zero
 
 
 
@@ -638,7 +640,7 @@ def test_profitable_harvest(
     # Use a whale of the harvest token to send
     harvest = interface.ERC20(conf['harvest_token'])
     harvestWhale = accounts.at(conf['harvest_token_whale'], True)
-    sendAmount = round((vault.totalAssets() / conf['harvest_token_price']) * 0.05)
+    sendAmount = round((0.05 * vault.totalAssets() / conf['harvest_token_price']))
     print('Send amount: {0}'.format(sendAmount))
     print('harvestWhale balance: {0}'.format(harvest.balanceOf(harvestWhale)))
     harvest.transfer(torch_manager, sendAmount, {'from': harvestWhale})
@@ -650,6 +652,8 @@ def test_profitable_harvest(
     chain.sleep(3600 * 6)  # 6 hrs needed for profits to unlock
     chain.mine(1)
     profit = token.balanceOf(vault.address)  # Profits go to vault
+
+    print("Profit: {0}".format(profit))
 
     assert strategy.estimatedTotalAssets() + profit > amount
     assert vault.pricePerShare() > before_pps

@@ -919,7 +919,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
         uint256 amountOut = short.balanceOf(address(this)) - shortBalanceBefore;
 
-        slippageWant = convertShortToWantLP(amountOutMin - amountOut);
+        //slippageWant = convertShortToWantLP(amountOutMin - amountOut);
     }
 
     /**
@@ -938,7 +938,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         if (_amountShort == 0) return(0,0);
         _amountWant = convertShortToWantLP(_amountShort);
 
-        uint256 _minSwap = 1000;
+        uint256 _minSwap = 1000000000;
         if (_amountShort < _minSwap || _amountWant < _minSwap) {
             return (0,0);
         }
@@ -956,7 +956,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
         uint256 _amountWantOut = want.balanceOf(address(this)) - wantBalanceBefore;
 
-        _slippageWant = _amountWant - _amountWantOut;
+        //_slippageWant = _amountWant - _amountWantOut;
     }
 
     function _swapWantShortExact(uint256 _amountOut)
@@ -982,7 +982,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             block.timestamp
         );
         
-        _slippageWant = amountInExactWant - amountInWant;
+        //_slippageWant = amountInExactWant - amountInWant;
     }
 
     function getAmountIn(uint256 _amountShort) internal returns (uint256 _amountWant) {

@@ -32,7 +32,7 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
             CoreStrategyAaveConfig(
                 0xEA32A96608495e54156Ae48931A7c20f0dcc1a21, // want -> USDC
                 0x420000000000000000000000000000000000000A, // short -> WETH
-                0x4C10a0E5fc4a6eDe720dEcdAD99B281076EAC0fA, // wantShortLP -> USDC/WETH
+                0x4C10a0E5fc4a6eDe720dEcdAD99B281076EAC0fA, // lpPool -> USDC/WETH
                 0x885C8AEC5867571582545F894A5906971dB9bf27, // aToken
                 0x8Bb19e3DD277a73D4A95EE434F14cE4B92898421, // variableDebtTOken
                 0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF, // PoolAddressesProvider

@@ -4,7 +4,7 @@ from brownie import Contract
 from brownie import interface, StrategyInsurance, TorchManagerV2, GrailManagerProxy, USDCWETHTORCHV2 ,accounts
 from tests.helper import encode_function_data
 
-TORCH_PRICE = 3000
+TORCH_PRICE = 2.2
 
 ORACLE = '0x38D36e85E47eA6ff0d18B0adF12E5fC8984A6f8e'
 
@@ -296,8 +296,6 @@ def strategy_mock_oracle(strategy_mock_oracle_before_set, torchManager_mock_orac
 
 
 # Function scoped isolation fixture to enable xdist.
-# Snapshots the chain before each test and reverts after test completion.
-#@pytest.fixture(scope="function", autouse=True)
 #def shared_setup(strategy, strategy_mock_oracle, grailManager, grailManager_mock_oracle):
 #    pass
 @pytest.fixture(autouse=True)

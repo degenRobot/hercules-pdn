@@ -343,25 +343,26 @@ contract TorchManagerV2 is INFTHandler {
             IXMetis(_xTorch).redeem(_xTorchBalance, IXMetis(_xTorch).minRedeemDuration());
         }
 
-        uint256 _metisBalance = metis.balanceOf(address(this));
         uint256 _torchBalance = torch.balanceOf(address(this));
+
+        if (_torchBalance > 1000) {
+            address[] memory path;
+            path = new address[](2);
+            path[0] = address(torch);
+            path[1] = address(metis);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
+        }
+
+        uint256 _metisBalance = metis.balanceOf(address(this));
 
         if (_metisBalance > 1000) {
             address[] memory path;
             path = new address[](2);
             path[0] = address(metis);
             path[1] = address(want);
-            // router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
         } 
 
-        if (_torchBalance > 1000) {
-            address[] memory path;
-            path = new address[](3);
-            path[0] = address(torch);
-            path[1] = address(metis);
-            path[2] = address(want);
-            // router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
-        }
 
     }
 
