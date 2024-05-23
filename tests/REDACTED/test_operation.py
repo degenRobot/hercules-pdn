@@ -75,6 +75,44 @@ def test_operation_simple(
         pytest.approx(token.balanceOf(user), rel=2e-3) == user_balance_before
     )
 
+def test_operation_simple_airdrop_want(
+    chain, accounts, gov, token, vault, strategy, user, strategist, torch_manager, amount, RELATIVE_APPROX, conf, lp_token, router, whale
+):
+    # Deposit to the vault
+    user_balance_before = token.balanceOf(user)
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+
+    strategy.harvest()
+    strat = strategy
+
+    airdropAmount = amount * 0.01
+
+    token.transfer(strategy, airdropAmount, {"from": whale})
+
+    vault.withdraw(amount, user, 500, {'from' : user}) 
+    assert (
+        pytest.approx(token.balanceOf(user), rel=2e-3) == user_balance_before
+    )
+
+def test_operation_simple_airdrop_short(
+    chain, accounts, gov, token, vault, strategy, user, strategist, torch_manager, amount, RELATIVE_APPROX, conf, lp_token, router, shortWhale, shortToken
+):
+    # Deposit to the vault
+    user_balance_before = token.balanceOf(user)
+    token.approve(vault.address, amount, {"from": user})
+    vault.deposit(amount, {"from": user})
+
+    strategy.harvest()
+    strat = strategy
+    airdropAmount = strategy.balanceDebtInShort() * 0.02
+    shortToken.transfer(strategy, airdropAmount, {"from": shortWhale})
+
+    vault.withdraw(amount, user, 500, {'from' : user}) 
+    assert (
+        pytest.approx(token.balanceOf(user), rel=2e-3) == user_balance_before
+    )
+
 
 def test_operation_simple_harvest(
     chain, accounts, gov, token, vault, strategy, user, strategist, torch_manager, amount, RELATIVE_APPROX, conf, lp_token, router, whale

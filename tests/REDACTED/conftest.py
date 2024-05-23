@@ -7,14 +7,13 @@ from tests.helper import encode_function_data
 TORCH_PRICE = 2.2
 
 ORACLE = '0x38D36e85E47eA6ff0d18B0adF12E5fC8984A6f8e'
-
 POOL_ADDRESS_PROVIDER = '0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF'
 # Tokens
 USDC = '0xEA32A96608495e54156Ae48931A7c20f0dcc1a21'
 USDC_WHALE = '0x555982d2E211745b96736665e19D9308B615F78e'
 WETH_WHALE = '0x59051B5F5172b69E66869048Dc69D35dB0B3610d'
 WMETIS = '0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481'
-WETH = ''
+WETH = '0x420000000000000000000000000000000000000A'
 SUSHI = '0xd4d42F0b6DEF4CE0383636770eF773390d85c61A'
 
 TORCH = '0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF'
@@ -24,6 +23,7 @@ SUSHISWAP_ROUTER = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506'
 CONFIG = {
     'USDCWETHTORCHV2': {
         'token': USDC,
+        'short' : WETH,
         'whale': USDC_WHALE,
         'shortWhale' : WETH_WHALE,
         'deposit': 1e6,
@@ -90,6 +90,10 @@ def keeper(accounts):
 @pytest.fixture
 def token(conf):
     yield interface.IERC20Extended(conf['token'])
+
+@pytest.fixture
+def shortToken(conf):
+    yield interface.IERC20Extended(conf['short'])
 
 @pytest.fixture
 def router(conf):

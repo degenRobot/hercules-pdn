@@ -318,7 +318,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         _withdrawAllPooled();
         _removeAllLp();
 
-        uint256 debtInShort = balanceDebtInShortCurrent();
+        uint256 debtInShort = balanceDebtInShort();
         uint256 balShort = balanceShort();
         if (balShort >= debtInShort) {
             _repayDebt();
@@ -689,15 +689,9 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         return(lpValue);
     }
 
-    // value of borrowed tokens in value of want tokens
+    // Value 
     function balanceDebtInShort() public view returns (uint256) {
         // Each debtToken is pegged 1:1 with the short token
-        return debtToken.balanceOf(address(this));
-    }
-
-    // value of borrowed tokens in value of want tokens
-    // Uses current exchange price, not stored
-    function balanceDebtInShortCurrent() internal returns (uint256) {
         return debtToken.balanceOf(address(this));
     }
 
@@ -775,7 +769,14 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 _lendBal = balanceLend();
         uint256 _debtBal = balanceDebt();
 
-        uint256 _maxRedeem = _lendBal.sub(_debtBal.mul(BASIS_PRECISION).div(collatLimit));
+        uint256 _debtAdj = _debtBal.mul(BASIS_PRECISION).div(collatLimit);
+        uint256 _maxRedeem;
+        if (_debtAdj < _lendBal) {
+            _maxRedeem = _lendBal.sub(_debtAdj);
+        } else {
+            _maxRedeem = 0;
+            return;
+        }
 
         if (_redeem_amount > _maxRedeem) {
             _redeem_amount = _maxRedeem;

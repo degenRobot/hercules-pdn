@@ -49,8 +49,7 @@ def test_migration(
     gov,
     user,
     RELATIVE_APPROX,
-    grail_manager_contract,
-    grail_manager_proxy_contract,
+    torch_manager_contract,
     conf,
 ):
     # Deposit to the vault and harvest
@@ -64,9 +63,9 @@ def test_migration(
 
     yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
     xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
-    grailManager = grail_manager_contract.deploy(gov, new_strategy, new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
+    torchManager = torch_manager_contract.deploy(new_strategy, {'from': gov})
 
-    new_strategy.setGrailManager(grailManager, {'from' : strategist})
+    new_strategy.setTorchManager(torchManager, {'from' : strategist})
 
     # migrate to a new strategy
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
@@ -92,8 +91,7 @@ def test_migration_with_low_calcdebtratio(
     RELATIVE_APPROX,
     router,
     shortWhale,
-    grail_manager_contract,
-    grail_manager_proxy_contract,
+    torch_manager_contract,
     conf,
 ):
 
@@ -118,9 +116,9 @@ def test_migration_with_low_calcdebtratio(
     
     yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
     xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
-    grailManager = grail_manager_contract.deploy(gov, new_strategy, new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
+    torchManager = torch_manager_contract.deploy(new_strategy, {'from': gov})
 
-    new_strategy.setGrailManager(grailManager, {'from' : strategist})
+    new_strategy.setTorchManager(torchManager, {'from' : strategist})
 
 
     # migrate to a new strategy
@@ -147,8 +145,7 @@ def test_migration_with_high_calcdebtratio(
     RELATIVE_APPROX,
     router,
     whale,
-    grail_manager_contract,
-    grail_manager_proxy_contract,
+    torch_manager_contract,
     conf,
 ):
 
@@ -176,10 +173,9 @@ def test_migration_with_high_calcdebtratio(
 
     yieldBooster = '0xA4dEfAf0904529A1ffE04CC8A1eF3BC7d7F7b121'
     xGrail = '0xF192897fC39bF766F1011a858dE964457bcA5832'
-    grailManager = grail_manager_contract.deploy(gov, new_strategy, new_strategy.want(), conf['lp_token'], conf['harvest_token'], xGrail, conf['lp_farm'], conf['router'], yieldBooster, {'from': gov})
+    torchManager = torch_manager_contract.deploy(new_strategy, {'from': gov})
 
-
-    new_strategy.setGrailManager(grailManager, {'from' : strategist})
+    new_strategy.setTorchManager(torchManager, {'from' : strategist})
 
     vault.migrateStrategy(strategy, new_strategy, {"from": gov})
     # will be some loss so use rel = 2e-3 (due to forcing debt ratio away from 100%)
