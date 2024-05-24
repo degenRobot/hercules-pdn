@@ -6,7 +6,7 @@ import pytest
 
 
 def test_vault_shutdown_can_withdraw(
-    chain, token, vault, strategy, user, amount, gov, RELATIVE_APPROX
+    chain, token, vault, strategy, user, amount, strategist, gov, RELATIVE_APPROX
 ):
     ## Deposit in Vault
     token.approve(vault.address, amount, {"from": user})
@@ -25,11 +25,10 @@ def test_vault_shutdown_can_withdraw(
     delta_debt = strategy.balanceDebt() - debt_before
     assert pytest.approx(strategy.estimatedTotalAssets(), rel=RELATIVE_APPROX) == amount - delta_debt
     ## Set Emergency
-    vault.setEmergencyShutdown(True)
+    strategy.setEmergencyExit({"from": strategist})
 
     ## Withdraw (does it work, do you get what you expect)
-    vault.withdraw(amount *.95, {"from": user})
-
+    vault.withdraw(amount, user, 500, {'from' : user}) 
     assert pytest.approx(token.balanceOf(user), rel=RELATIVE_APPROX) == amount - delta_debt
 
 
