@@ -17,7 +17,8 @@ interface ITorchManager {
     function addToLp(uint256 _amount0, uint256 _amount1) external;
     function withdrawLp() external;
     function countLpPooled() external view returns (uint256);
-
+    function isRetired() external view returns (bool);
+    function retireTorchManager() external;
 }
 
 contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
@@ -103,8 +104,20 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
     }
 
     function setTorchManager(address _torchManager) external onlyAuthorized {
+        require(address(torchManager) == address(0), "already set");
         require(_torchManager != address(0), "invalid address");
         torchManager = ITorchManager(_torchManager);
+    }
+
+    function upgradeTorchManager(address _newTorchManager) external onlyAuthorized {
+        require(_newTorchManager != address(0), "invalid address");
+        if (!torchManager.isRetired()){
+            torchManager.retireTorchManager();
+        }
+        torchManager = ITorchManager(_newTorchManager);
+        _repayDebt();
+        _deploy(balanceOfWant());
+
     }
 
     function setAave(address _oracle, address _pool) external onlyAuthorized {

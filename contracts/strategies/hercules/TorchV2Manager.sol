@@ -131,8 +131,7 @@ contract TorchManagerV2 is INFTHandler {
     IClearance public clearance;
     IUniProxy public depositPoint;
     ICamelotRouter public router;
-
-
+    bool public isRetired = false;
     bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
 
     constructor(address _strategy) {
@@ -319,6 +318,48 @@ contract TorchManagerV2 is INFTHandler {
 
     }
 
+    function harvestRetired() external onlyStrategyAndAbove {
+        require(isRetired, "not retired");
+
+        address _xMetis = 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996;
+        uint256 _xMetisBalance = IXMetis(_xMetis).balanceOf(address(this));
+
+        address _xTorch = 0xF192897fC39bF766F1011a858dE964457bcA5832;
+        uint256 _xTorchBalance = IXMetis(_xTorch).balanceOf(address(this));
+
+        _finaliseRedeems(_xMetis);
+        _finaliseRedeems(_xTorch);
+
+        if (_xMetisBalance > 0 ) {
+            IXMetis(_xMetis).redeem(_xMetisBalance, IXMetis(_xMetis).minRedeemDuration());
+        }
+        if (_xTorchBalance > 0 ) {
+            IXMetis(_xTorch).redeem(_xTorchBalance, IXMetis(_xTorch).minRedeemDuration());
+        }
+
+        uint256 _torchBalance = torch.balanceOf(address(this));
+
+        if (_torchBalance > 1000) {
+            address[] memory path;
+            path = new address[](2);
+            path[0] = address(torch);
+            path[1] = address(metis);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
+        }
+
+        uint256 _metisBalance = metis.balanceOf(address(this));
+
+        if (_metisBalance > 1000) {
+            address[] memory path;
+            path = new address[](2);
+            path[0] = address(metis);
+            path[1] = address(want);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
+        } 
+
+
+    }
+
     function harvest() external onlyStrategy {
         if (tokenId == 0) {
             return;
@@ -364,6 +405,14 @@ contract TorchManagerV2 is INFTHandler {
         } 
 
 
+    }
+
+    function retireTorchManager() external onlyStrategyAndAbove {
+        if (countLpPooled() > 0) {
+            INitroPool(nitroPool).withdraw(tokenId);
+            _removeAllLp();
+        }
+        isRetired = true;
     }
 
 
