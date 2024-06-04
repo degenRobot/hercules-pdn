@@ -904,7 +904,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         if (_amount == 0) return (0);
         uint256 amountOutMin = convertWantToShortLP(_amount);
         uint256 shortBalanceBefore = short.balanceOf(address(this));
-        uint256 _minSwap = 1000;
+        uint256 _minSwap = 100;
         if (_amount < _minSwap || amountOutMin < _minSwap) {
             return 0;
         }
@@ -968,7 +968,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         uint256 amountInWant = convertShortToWantLP(_amountOut);
         uint256 amountInExactWant = getAmountIn(_amountOut);
 
-        uint256 _minSwap = 1000;
+        uint256 _minSwap = 100;
         if (amountInExactWant < _minSwap || _amountOut < _minSwap) {
             return (0);
         }
@@ -983,6 +983,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             block.timestamp
         );
         
+        // Right a function to dividie 1000 / 10
         //_slippageWant = amountInExactWant - amountInWant;
     }
 

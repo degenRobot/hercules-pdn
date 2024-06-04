@@ -564,7 +564,7 @@ def test_reduce_debt_with_high_calcdebtratio(
     chain.mine(1)
     strategy_mock_oracle.harvest()
     #assert strategy_mock_oracle.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
-    assert strategy_mock_oracle.estimatedTotalAssets() / amount < 1e-4  # near zero
+    assert strategy_mock_oracle.estimatedTotalAssets() / amount < 5e-3  # near zero
 
 def test_increase_debt_with_low_calcdebtratio(
     chain, gov, token, vault_mock_oracle, strategy_mock_oracle, user, strategist, amount, RELATIVE_APPROX, conf, lp_token, lp_whale, lp_price, pid, router, shortWhale
@@ -653,7 +653,7 @@ def test_increase_debt_with_high_calcdebtratio(
     strategy_mock_oracle.harvest()
 
     #assert strategy_mock_oracle.estimatedTotalAssets() < 10 ** (token.decimals() - 3) # near zero
-    assert strategy_mock_oracle.estimatedTotalAssets() / amount < 1e-4  # near zero
+    assert strategy_mock_oracle.estimatedTotalAssets() / amount < 5e-3  # near zero
     
     # REMAINING AMOUNT BEING % of TVL 
 

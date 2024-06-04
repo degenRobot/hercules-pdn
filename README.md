@@ -1,18 +1,14 @@
-# Yearn Strategy Brownie Mix
+# Hercules PDN Strategy
 
 ## What you'll find here
 
-- Basic Solidity Smart Contract for creating your own Yearn Strategy ([`contracts/Strategy.sol`](contracts/Strategy.sol))
-
-- Interfaces for some of the most used DeFi protocols on ethereum mainnet. ([`interfaces/`](`interfaces/`))
-
-- Sample test suite that runs on mainnet fork. ([`tests/`](tests))
+- Solidity Smart Contract compatible with Yearn V2 vaults 
 
 This mix is configured for use with [Ganache](https://github.com/trufflesuite/ganache-cli) on a [forked mainnet](https://eth-brownie.readthedocs.io/en/stable/network-management.html#using-a-forked-development-network).
 
 ## How does it work for the User
 
-Let's say Alice holds 100 DAI and wants to start earning yield % on them.
+Let's say Alice holds 100 USDC and wants to start earning yield % on them.
 
 For this Alice needs to `DAI.approve(vault.address, 100)`.
 
@@ -109,25 +105,20 @@ If you are getting a revert error, it's most likley because the vault can't add 
 >>> harvest_tx = strategy.harvest({"from": accounts[0]})  # perform as many time as desired...
 ```
 
-## Implementing Strategy Logic
+## Strategy Logic
 
-[`contracts/Strategy.sol`](contracts/Strategy.sol) is where you implement your own logic for your strategy. In particular:
+[`contracts/strategies/hercules/USDCWETHTORCHV2.sol`](contracts/strategies/hercules/USDCWETHTORCHV2.sol) contains deployed contract for the strategy. In particular:
 
-- Create a descriptive name for your strategy via `Strategy.name()`.
-- Invest your want tokens via `Strategy.adjustPosition()`.
-- Take profits and report losses via `Strategy.prepareReturn()`.
-- Unwind enough of your position to payback withdrawals via `Strategy.liquidatePosition()`.
-- Unwind all of your positions via `Strategy.exitPosition()`.
-- Fill in a way to estimate the total `want` tokens managed by the strategy via `Strategy.estimatedTotalAssets()`.
-- Migrate all the positions managed by your strategy via `Strategy.prepareMigration()`.
-- Make a list of all position tokens that should be protected against movements via `Strategy.protectedTokens()`.
+- This also inherits from [`contracts/strategies/hercules/CoreStrategyAAVEGamma.sol`](contracts/strategies/hercules/CoreStrategyAAVEGamma.sol) & 
+[`contracts/strategies/hercules/TorchV2Manager.sol`](contracts/strategies/hercules/TorchV2Manager.sol) which both contain core logic for interacting with relevant primitives i.e. AAVE & Herculses
+
 
 ## Testing
 
-To run the tests:
+To run the tests (note you'll have to add metis-main-fork):
 
 ```
-brownie test
+brownie test tests/REDACTED --network==metis-main-fork
 ```
 
 The example tests provided in this mix start by deploying and approving your [`Strategy.sol`](contracts/Strategy.sol) contract. This ensures that the loan executes succesfully without any custom logic. Once you have built your own logic, you should edit [`tests/test_flashloan.py`](tests/test_flashloan.py) and remove this initial funding logic.
