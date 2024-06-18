@@ -66,6 +66,8 @@ def test_claim_x_assets(
 
     strategy.harvest()
 
+    #assert False
+
     #assert xMetis.getUserRedeemsLength(torch_manager) == 2
     assert xTorch.getUserRedeemsLength(torch_manager) == 2  
     print("Post Harvest Check - should be diff amounts")
@@ -73,6 +75,11 @@ def test_claim_x_assets(
     print("Metis Redeem: {0} {1} {2}".format(redeemAmount, xRedeemAmt, redeemTime))
     (redeemAmount, xRedeemAmt, redeemTime, div, div1) = xTorch.userRedeems(torch_manager, 0)
     print("Torch Redeem: {0} {1} {2}".format(redeemAmount, xRedeemAmt, redeemTime))
+
+    metis = interface.IERC20(conf['wmetis'])
+    torch = interface.IERC20(conf['harvest_token'])
+
+    assert False
 
 
 def test_profitable_harvest_torch(

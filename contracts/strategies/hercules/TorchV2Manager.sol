@@ -25,6 +25,8 @@ import {IAlgebraPool} from "../../interfaces/camelot/IAlgebraPool.sol";
 interface IStrategy {
     function want () external view returns (address);
     function short() external view returns (address);
+    function strategist() external view returns (address);
+    function governance() external view returns (address);
  
 }
 
@@ -120,6 +122,13 @@ interface IXGrailToken {
 
 contract TorchManagerV2 is INFTHandler {
 
+    event Received(address, uint);
+
+    receive() external payable {
+        // when receiving METIS from finalizing redeems of XMetis we want to immediately wrap it
+        emit Received(msg.sender, msg.value);
+    }
+
     uint256 public tokenId;
     address public nitroPool;
     address public nftPool;
@@ -145,6 +154,7 @@ contract TorchManagerV2 is INFTHandler {
         strategy = _strategy;
         want = IERC20(IStrategy(_strategy).want());
         short = IERC20(IStrategy(_strategy).short());
+        //strategist = IStrategy(_strategy).strategist();
 
         gammaVault = IGammaVault(0x343cA50235bd4dBefAcE13416EdB21FCB07f26a2);
         depositPoint = IUniProxy(0xD882a7AD21a6432B806622Ba5323716Fba5241A8);
@@ -185,18 +195,18 @@ contract TorchManagerV2 is INFTHandler {
     }
 
     modifier onlyStrategyAndAbove() {
-        require(msg.sender == address(strategy) || msg.sender == manager || msg.sender == strategist);
+        require(msg.sender == address(strategy) || msg.sender == IStrategy(strategy).governance() || msg.sender == IStrategy(strategy).strategist());
         _;
     }
 
     function _onlyManager() internal {
-        require(msg.sender == manager);
+        require(msg.sender == IStrategy(strategy).governance());
     }
 
     function _onlyStrategist() internal {
         require(
             msg.sender == manager ||
-                msg.sender == strategist
+                msg.sender == IStrategy(strategy).strategist()
         );
     }
 
@@ -234,7 +244,6 @@ contract TorchManagerV2 is INFTHandler {
         INFTPoolTorch(nftPool).withdrawFromPosition(tokenId, countLpPooled());
         uint256[4] memory _minAmounts;
         gammaVault.withdraw(_shares, address(this), address(this), _minAmounts);
-
         want.transfer(address(strategy), want.balanceOf(address(this)));
         short.transfer(address(strategy), short.balanceOf(address(this)));
         // NOTE : we set TokenId back to 0 -> no LP is pooled will return balance 0 in countLpPooled
@@ -320,6 +329,10 @@ contract TorchManagerV2 is INFTHandler {
         (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_redeemAddress).userRedeems(address(this), i);
         if (_endTime < block.timestamp) {
             IXMetis(_redeemAddress).finalizeRedeem(i);
+            if (_redeemAddress == 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996 ) {
+                uint amountETH = address(this).balance;
+                IWETH(address(metis)).deposit{value: amountETH}();
+            }
 
         } else {
             // DO NOTHING -> WAIT FOR VESTING TO END
@@ -329,50 +342,14 @@ contract TorchManagerV2 is INFTHandler {
     }
 
 
-    function finalizeRedeem(address _xToken, uint256 _index) external payable {
-        IXMetis(_xToken).finalizeRedeem(_index);
+    function redeemXMetis() external payable {
+        IXMetis(0xcA042eA7E9AA901C85d5afA5247a79E935dB4996).finalizeRedeem(0);
+        uint amountETH = address(this).balance;
+        IWETH(address(metis)).deposit{value: amountETH}();
     }
 
-    function harvestRetired() external onlyStrategyAndAbove {
-        require(isRetired, "not retired");
-
-        address _xMetis = 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996;
-        uint256 _xMetisBalance = IXMetis(_xMetis).balanceOf(address(this));
-
-        address _xTorch = 0xF192897fC39bF766F1011a858dE964457bcA5832;
-        uint256 _xTorchBalance = IXMetis(_xTorch).balanceOf(address(this));
-
-        _finaliseRedeems(_xMetis);
-        _finaliseRedeems(_xTorch);
-
-        if (_xMetisBalance > 0 ) {
-            IXMetis(_xMetis).redeem(_xMetisBalance, IXMetis(_xMetis).minRedeemDuration());
-        }
-        if (_xTorchBalance > 0 ) {
-            IXMetis(_xTorch).redeem(_xTorchBalance, IXMetis(_xTorch).minRedeemDuration());
-        }
-
-        uint256 _torchBalance = torch.balanceOf(address(this));
-
-        if (_torchBalance > 1000) {
-            address[] memory path;
-            path = new address[](2);
-            path[0] = address(torch);
-            path[1] = address(metis);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
-        }
-
-        uint256 _metisBalance = metis.balanceOf(address(this));
-
-        if (_metisBalance > 1000) {
-            address[] memory path;
-            path = new address[](2);
-            path[0] = address(metis);
-            path[1] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
-        } 
-
-
+    function finalizeRedeem(address _xToken, uint256 _index) external payable {
+        IXMetis(_xToken).finalizeRedeem(_index);
     }
 
     function harvest() external onlyStrategy {
@@ -401,26 +378,23 @@ contract TorchManagerV2 is INFTHandler {
         }
 
         uint256 _torchBalance = torch.balanceOf(address(this));
-
         if (_torchBalance > 1000) {
             address[] memory path;
             path = new address[](3);
             path[0] = address(torch);
             path[1] = address(metis);
             path[2] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, address(this), address(this), block.timestamp);
         }
 
         uint256 _metisBalance = metis.balanceOf(address(this));
-
         if (_metisBalance > 1000) {
             address[] memory path;
             path = new address[](2);
             path[0] = address(metis);
             path[1] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, strategy, address(0), block.timestamp);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, address(this), address(this), block.timestamp);
         } 
-
 
     }
 
@@ -431,6 +405,50 @@ contract TorchManagerV2 is INFTHandler {
         }
         isRetired = true;
     }
+
+
+    function harvestRetired() external onlyStrategyAndAbove {
+        require(isRetired, "not retired");
+
+        address _xMetis = 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996;
+        uint256 _xMetisBalance = IXMetis(_xMetis).balanceOf(address(this));
+
+        address _xTorch = 0xF192897fC39bF766F1011a858dE964457bcA5832;
+        uint256 _xTorchBalance = IXMetis(_xTorch).balanceOf(address(this));
+
+        _finaliseRedeems(_xMetis);
+        _finaliseRedeems(_xTorch);
+
+        if (_xMetisBalance > 0 ) {
+            IXMetis(_xMetis).redeem(_xMetisBalance, IXMetis(_xMetis).minRedeemDuration());
+        }
+        if (_xTorchBalance > 0 ) {
+            IXMetis(_xTorch).redeem(_xTorchBalance, IXMetis(_xTorch).minRedeemDuration());
+        }
+
+        uint256 _torchBalance = torch.balanceOf(address(this));
+
+        if (_torchBalance > 1000) {
+            address[] memory path;
+            path = new address[](2);
+            path[0] = address(torch);
+            path[1] = address(metis);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, address(this), address(this), block.timestamp);
+        }
+
+        uint256 _metisBalance = metis.balanceOf(address(this));
+
+        if (_metisBalance > 1000) {
+            address[] memory path;
+            path = new address[](2);
+            path[0] = address(metis);
+            path[1] = address(want);
+            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, address(this), address(this), block.timestamp);
+        } 
+
+
+    }
+
 
 
 }
