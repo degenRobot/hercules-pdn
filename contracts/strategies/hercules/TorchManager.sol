@@ -51,6 +51,17 @@ interface IXMetis {
     function balanceOf(address owner) external view returns (uint256);
     function minRedeemDuration() external view returns (uint256);
     function redeem(uint256 xMetisAmount, uint256 duration) external;
+    function getUserRedeemsLength(address user) external view returns (uint256);
+    function getUserRedeem(address user, uint256 index) external view returns(uint256);
+    function userRedeems(address user, uint256 index) external view returns (
+        uint256 grailAmount,// GRAIL amount to receive when vesting has ended
+        uint256 xGrailAmount, // xGRAIL amount to redeem
+        uint256 endTime,
+        address dividendsAddress,
+        uint256 dividendsAllocation // Share of redeeming xGRAIL to allocate to the Dividends Usage contract
+    );
+
+    function finalizeRedeem(uint256 index) external;
 }
 
 interface CoreStrategyAPI {

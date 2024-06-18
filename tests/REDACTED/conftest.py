@@ -4,7 +4,7 @@ from brownie import Contract
 from brownie import interface, StrategyInsurance, TorchManagerV2, GrailManagerProxy, USDCWETHTORCHV2 ,accounts
 from tests.helper import encode_function_data
 
-TORCH_PRICE = 2.2
+TORCH_PRICE = 1
 
 ORACLE = '0x38D36e85E47eA6ff0d18B0adF12E5fC8984A6f8e'
 POOL_ADDRESS_PROVIDER = '0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF'
@@ -19,6 +19,8 @@ SUSHI = '0xd4d42F0b6DEF4CE0383636770eF773390d85c61A'
 TORCH = '0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF'
 TORCH_ROUTER = '0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C'
 
+METIS_PRICE = 50
+
 SUSHISWAP_ROUTER = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506'
 CONFIG = {
     'USDCWETHTORCHV2': {
@@ -28,6 +30,8 @@ CONFIG = {
         'shortWhale' : WETH_WHALE,
         'deposit': 1e6,
         'harvest_token': TORCH,
+        'wmetis' : WMETIS,
+        'metis_price' : METIS_PRICE * 1e-12, # note adjust by 1e-12 due to dif in decimals between USDC & METIS token i.e. 6 vs 18
         'harvest_token_price': TORCH_PRICE * 1e-12, #note adjust by 1e-12 due to dif in decimals between USDC & GRAIL token i.e. 6 vs 18 
         'harvest_token_whale': '0x5c24bA2eA12f94E9F3476eaBDf10373dC2913605',
         'lp_token': '0x35096c3cA17D12cBB78fA4262f3c6eff73ac9fFc',

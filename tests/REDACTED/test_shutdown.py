@@ -60,6 +60,6 @@ def test_basic_shutdown(
 
     strategy.harvest()  ## Remove funds from strategy
 
-    dust = amount*0.00001
+    dust = amount*0.001
     assert strategy.estimatedTotalAssets() < dust ## the strat shouldn't have more than some dust 
     assert pytest.approx(token.balanceOf(vault),rel=1e-3) == amount

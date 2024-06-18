@@ -28,6 +28,12 @@ interface IStrategy {
  
 }
 
+interface IWETH {
+    function deposit() external payable;
+    function transfer(address to, uint value) external returns (bool);
+    function withdraw(uint) external;
+}
+
 interface INFTHandler is IERC721Receiver {
     function onNFTHarvest(
         address operator,
@@ -82,6 +88,7 @@ interface IXMetis {
     function minRedeemDuration() external view returns (uint256);
     function redeem(uint256 xMetisAmount, uint256 duration) external;
     function getUserRedeemsLength(address user) external view returns (uint256);
+    function getUserRedeem(address user, uint256 index) external view returns(uint256);
     function userRedeems(address user, uint256 index) external view returns (
         uint256 grailAmount,// GRAIL amount to receive when vesting has ended
         uint256 xGrailAmount, // xGRAIL amount to redeem
@@ -307,15 +314,23 @@ contract TorchManagerV2 is INFTHandler {
         if (_nRedeems == 0) {
             return;
         }
-        for (uint256 i = 0; i < _nRedeems; i++) {
-            (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_redeemAddress).userRedeems(address(this), i);
-            if (_endTime < block.timestamp) {
-                IXMetis(_redeemAddress).finalizeRedeem(i);
-            } else {
-                return;
-            }
-        }
 
+        uint256 i = 0;
+
+        (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_redeemAddress).userRedeems(address(this), i);
+        if (_endTime < block.timestamp) {
+            IXMetis(_redeemAddress).finalizeRedeem(i);
+
+        } else {
+            // DO NOTHING -> WAIT FOR VESTING TO END
+        }
+    
+
+    }
+
+
+    function finalizeRedeem(address _xToken, uint256 _index) external payable {
+        IXMetis(_xToken).finalizeRedeem(_index);
     }
 
     function harvestRetired() external onlyStrategyAndAbove {
@@ -374,7 +389,8 @@ contract TorchManagerV2 is INFTHandler {
         address _xTorch = 0xF192897fC39bF766F1011a858dE964457bcA5832;
         uint256 _xTorchBalance = IXMetis(_xTorch).balanceOf(address(this));
         // NOTE : This will finalize any existing redeems that are ready to be finalised
-        _finaliseRedeems(_xMetis);
+        // TODO : Fix logic for xMetis redeems - need to be payable + handle Metis 
+        //_finaliseRedeems(_xMetis);
         _finaliseRedeems(_xTorch);
 
         if (_xMetisBalance > 0 ) {
@@ -388,9 +404,10 @@ contract TorchManagerV2 is INFTHandler {
 
         if (_torchBalance > 1000) {
             address[] memory path;
-            path = new address[](2);
+            path = new address[](3);
             path[0] = address(torch);
             path[1] = address(metis);
+            path[2] = address(want);
             router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, strategy, address(0), block.timestamp);
         }
 
