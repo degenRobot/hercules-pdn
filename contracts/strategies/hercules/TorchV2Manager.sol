@@ -21,6 +21,7 @@ import {IUniProxy} from "../../interfaces/gamma/IUniProxy.sol";
 import {IClearance} from "../../interfaces/gamma/IClearance.sol";
 import {IAlgebraPool} from "../../interfaces/camelot/IAlgebraPool.sol";
 
+import {ISwapRouter} from "../../interfaces/ISwapRouter.sol";
 
 interface IStrategy {
     function want () external view returns (address);
@@ -146,7 +147,7 @@ contract TorchManagerV2 is INFTHandler {
     IGammaVault public gammaVault;
     IClearance public clearance;
     IUniProxy public depositPoint;
-    ICamelotRouter public router;
+    ISwapRouter public router;
     bool public isRetired = false;
     bytes4 private constant _ERC721_RECEIVED = 0x150b7a02;
 
@@ -166,7 +167,7 @@ contract TorchManagerV2 is INFTHandler {
         metis = IERC20(0x75cb093E4D61d2A2e65D8e0BBb01DE8d89b53481);
         torch = IERC20(0xbB1676046C36BCd2F6fD08d8f60672c7087d9aDF);
 
-        router = ICamelotRouter(0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C);
+        router = ISwapRouter(0xBde5839EC36Db2aC492b79e9E3B75e15FA8A59ec);
 
         want.approve(address(gammaVault), type(uint256).max);        
         IERC20(address(short)).approve(address(gammaVault), type(uint256).max);   
@@ -334,11 +335,7 @@ contract TorchManagerV2 is INFTHandler {
                 IWETH(address(metis)).deposit{value: amountETH}();
             }
 
-        } else {
-            // DO NOTHING -> WAIT FOR VESTING TO END
         }
-    
-
     }
 
 
@@ -376,26 +373,49 @@ contract TorchManagerV2 is INFTHandler {
         if (_xTorchBalance > 0 ) {
             IXMetis(_xTorch).redeem(_xTorchBalance, IXMetis(_xTorch).minRedeemDuration());
         }
+        _sellTorch();
+        _sellMetis();
 
+    }
+
+    function _sellTorch() internal {
         uint256 _torchBalance = torch.balanceOf(address(this));
         if (_torchBalance > 1000) {
-            address[] memory path;
-            path = new address[](3);
-            path[0] = address(torch);
-            path[1] = address(metis);
-            path[2] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, address(this), address(this), block.timestamp);
+            router.exactInputSingleSupportingFeeOnTransferTokens(
+                ISwapRouter.ExactInputSingleParams(
+                    address(torch),
+                    address(metis),
+                    address(this),
+                    block.timestamp,
+                    _torchBalance,
+                    0,
+                    0
+                )
+            );
+            //router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, address(this), address(this), block.timestamp);
         }
+    }
 
+    function _sellMetis() internal {
         uint256 _metisBalance = metis.balanceOf(address(this));
         if (_metisBalance > 1000) {
             address[] memory path;
             path = new address[](2);
             path[0] = address(metis);
             path[1] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, address(this), address(this), block.timestamp);
-        } 
-
+            router.exactInputSingleSupportingFeeOnTransferTokens(
+                ISwapRouter.ExactInputSingleParams(
+                    address(metis),
+                    address(want),
+                    address(this),
+                    block.timestamp,
+                    _metisBalance,
+                    0,
+                    0
+                )
+            );
+            //router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, address(this), address(this), block.timestamp);
+        }
     }
 
     function retireTorchManager() external onlyStrategyAndAbove {
@@ -428,23 +448,8 @@ contract TorchManagerV2 is INFTHandler {
 
         uint256 _torchBalance = torch.balanceOf(address(this));
 
-        if (_torchBalance > 1000) {
-            address[] memory path;
-            path = new address[](2);
-            path[0] = address(torch);
-            path[1] = address(metis);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_torchBalance, 0, path, address(this), address(this), block.timestamp);
-        }
-
-        uint256 _metisBalance = metis.balanceOf(address(this));
-
-        if (_metisBalance > 1000) {
-            address[] memory path;
-            path = new address[](2);
-            path[0] = address(metis);
-            path[1] = address(want);
-            router.swapExactTokensForTokensSupportingFeeOnTransferTokens(_metisBalance, 0, path, address(this), address(this), block.timestamp);
-        } 
+        _sellTorch();
+        _sellMetis();
 
 
     }

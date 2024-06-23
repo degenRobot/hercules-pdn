@@ -79,6 +79,11 @@ def test_claim_x_assets(
     metis = interface.IERC20(conf['wmetis'])
     torch = interface.IERC20(conf['harvest_token'])
 
+    print("Post Redeem Balances")
+    print("Metis Balance: {0}".format(metis.balanceOf(torch_manager)))
+    print("Torch Balance: {0}".format(torch.balanceOf(torch_manager)))
+    print("Token Balance: {0}".format(token.balanceOf(torch_manager)))
+
     assert False
 
 
