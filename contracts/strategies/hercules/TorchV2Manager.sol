@@ -16,6 +16,7 @@ import "../../interfaces/camelot/ICamelotRouter.sol";
 
 import "../../interfaces/camelot/ICamelotRouter.sol";
 
+
 import {IGammaVault} from "../../interfaces/gamma/IGammaVault.sol";
 import {IUniProxy} from "../../interfaces/gamma/IUniProxy.sol";
 import {IClearance} from "../../interfaces/gamma/IClearance.sol";
@@ -27,6 +28,7 @@ interface IStrategy {
     function want () external view returns (address);
     function short() external view returns (address);
     function strategist() external view returns (address);
+    function keeper() external view returns (address);
     function governance() external view returns (address);
  
 }
@@ -321,32 +323,25 @@ contract TorchManagerV2 is INFTHandler {
     function _finaliseRedeems(address _redeemAddress) internal {
         uint256 _nRedeems = IXMetis(_redeemAddress).getUserRedeemsLength(address(this));
 
-        if (_nRedeems == 0) {
-            return;
-        }
-
-        uint256 i = 0;
-
-        (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_redeemAddress).userRedeems(address(this), i);
-        if (_endTime < block.timestamp) {
-            IXMetis(_redeemAddress).finalizeRedeem(i);
-            if (_redeemAddress == 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996 ) {
-                uint amountETH = address(this).balance;
-                IWETH(address(metis)).deposit{value: amountETH}();
+        if (_nRedeems > 0) {
+            uint256 i = 0;
+            (uint256 _grailAmount, uint256 _xGrailAmount, uint256 _endTime , , ) = IXMetis(_redeemAddress).userRedeems(address(this), i);
+            if (_endTime < block.timestamp) {
+                IXMetis(_redeemAddress).finalizeRedeem(i);
+                if (_redeemAddress == 0xcA042eA7E9AA901C85d5afA5247a79E935dB4996 ) {
+                    uint amountETH = address(this).balance;
+                    IWETH(address(metis)).deposit{value: amountETH}();
+                }
             }
-
         }
     }
 
 
     function redeemXMetis() external payable {
+        require(msg.sender == IStrategy(strategy).keeper() || msg.sender == IStrategy(strategy).governance(), "not keeper");
         IXMetis(0xcA042eA7E9AA901C85d5afA5247a79E935dB4996).finalizeRedeem(0);
         uint amountETH = address(this).balance;
         IWETH(address(metis)).deposit{value: amountETH}();
-    }
-
-    function finalizeRedeem(address _xToken, uint256 _index) external payable {
-        IXMetis(_xToken).finalizeRedeem(_index);
     }
 
     function harvest() external onlyStrategy {
@@ -366,6 +361,8 @@ contract TorchManagerV2 is INFTHandler {
         // TODO : Fix logic for xMetis redeems - need to be payable + handle Metis 
         //_finaliseRedeems(_xMetis);
         _finaliseRedeems(_xTorch);
+        _sellTorch();
+        _sellMetis();
 
         if (_xMetisBalance > 0 ) {
             IXMetis(_xMetis).redeem(_xMetisBalance, IXMetis(_xMetis).minRedeemDuration());
@@ -373,13 +370,19 @@ contract TorchManagerV2 is INFTHandler {
         if (_xTorchBalance > 0 ) {
             IXMetis(_xTorch).redeem(_xTorchBalance, IXMetis(_xTorch).minRedeemDuration());
         }
-        _sellTorch();
-        _sellMetis();
+
+        uint256 _wantBalance = want.balanceOf(address(this));
+        if (_wantBalance > 0) {
+            want.transfer(address(strategy), _wantBalance);
+        }
 
     }
 
     function _sellTorch() internal {
         uint256 _torchBalance = torch.balanceOf(address(this));
+
+        // WMETIS x TORCH pool = 0x6eeAC91f1Bd77e1aD9a25C12c6A9577b4c185D94
+
         if (_torchBalance > 1000) {
             router.exactInputSingleSupportingFeeOnTransferTokens(
                 ISwapRouter.ExactInputSingleParams(
@@ -397,12 +400,10 @@ contract TorchManagerV2 is INFTHandler {
     }
 
     function _sellMetis() internal {
+        // WMETIS x USDC pool = 0xA4E4949e0cccd8282f30e7E113D8A551A1eD1aeb
+
         uint256 _metisBalance = metis.balanceOf(address(this));
         if (_metisBalance > 1000) {
-            address[] memory path;
-            path = new address[](2);
-            path[0] = address(metis);
-            path[1] = address(want);
             router.exactInputSingleSupportingFeeOnTransferTokens(
                 ISwapRouter.ExactInputSingleParams(
                     address(metis),

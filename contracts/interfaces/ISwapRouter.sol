@@ -13,7 +13,5 @@ interface ISwapRouter {
         uint256 amountOutMinimum;
         uint160 limitSqrtPrice;
     }
-
-    function exactInputSingleSupportingFeeOnTransferTokens(ExactInputSingleParams calldata params) external;
-
+    function exactInputSingleSupportingFeeOnTransferTokens(ExactInputSingleParams calldata params) external returns (uint256 amountOut);
 }

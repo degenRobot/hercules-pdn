@@ -84,8 +84,6 @@ def test_claim_x_assets(
     print("Torch Balance: {0}".format(torch.balanceOf(torch_manager)))
     print("Token Balance: {0}".format(token.balanceOf(torch_manager)))
 
-    assert False
-
 
 def test_profitable_harvest_torch(
     chain, accounts, gov, token, vault, strategy, torch_manager ,user, strategist, amount, RELATIVE_APPROX, conf

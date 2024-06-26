@@ -18,4 +18,13 @@ interface IAlgebraPool {
     function token1() external view returns(address);
     function liquidity() external view returns(uint128);
 
+    function swapSupportingFeeOnTransferTokens(
+        address sender,
+        address recipient,
+        bool zeroForOne,
+        int256 amountSpecified,
+        uint160 sqrtPriceLimitX96,
+        bytes calldata data
+    ) external;
+
 }
