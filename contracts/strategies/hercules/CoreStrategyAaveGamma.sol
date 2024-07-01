@@ -12,7 +12,6 @@ import {
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
-import "../../interfaces/camelot/ICamelotRouter.sol";
 import "../../interfaces/aave/IAToken.sol";
 import "../../interfaces/aave/IVariableDebtToken.sol";
 import "../../interfaces/aave/IPool.sol";
@@ -23,6 +22,8 @@ import {IGammaVault} from "../../interfaces/gamma/IGammaVault.sol";
 import {IUniProxy} from "../../interfaces/gamma/IUniProxy.sol";
 import {IClearance} from "../../interfaces/gamma/IClearance.sol";
 import {IAlgebraPool} from "../../interfaces/camelot/IAlgebraPool.sol";
+
+import {ISwapRouter} from "../../interfaces/ISwapRouter.sol";
 
 struct CoreStrategyAaveConfig {
     // A portion of want token is depoisited into a lending platform to be used as
@@ -99,7 +100,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
     uint8 shortDecimals;
     IUniswapV2Pair wantShortLP; // This is public because it helps with unit testing
     // Contract Interfaces
-    ICamelotRouter router;
+    ISwapRouter router;
     IPool pool;
     IAToken aToken;
     IVariableDebtToken debtToken;
@@ -129,7 +130,7 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         shortDecimals = IERC20Extended(_config.short).decimals();
 
         // initialise other interfaces
-        router = ICamelotRouter(_config.router);
+        router = ISwapRouter(_config.router);
 
         IPoolAddressesProvider provider =
             IPoolAddressesProvider(_config.poolAddressesProvider);
@@ -909,13 +910,16 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
             return 0;
         }
 
-        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amount,
-            amountOutMin.mul(slippageAdj).div(BASIS_PRECISION),
-            getTokenOutPath(address(want), address(short)), // _pathWantToShort(),
-            address(this),
-            address(this),
-            block.timestamp
+        router.exactInputSingleSupportingFeeOnTransferTokens(
+            ISwapRouter.ExactInputSingleParams(
+                address(want),
+                address(short),
+                address(this),
+                block.timestamp,
+                _amount,
+                amountOutMin.mul(slippageAdj).div(BASIS_PRECISION),
+                0
+            )
         );
 
         uint256 amountOut = short.balanceOf(address(this)) - shortBalanceBefore;
@@ -946,13 +950,16 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
 
         uint256 wantBalanceBefore = want.balanceOf(address(this));
 
-        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            _amountShort,
-            _amountWant.mul(slippageAdj).div(BASIS_PRECISION),
-            getTokenOutPath(address(short), address(want)),
-            address(this),
-            address(this),
-            block.timestamp
+        router.exactInputSingleSupportingFeeOnTransferTokens(
+            ISwapRouter.ExactInputSingleParams(
+                address(short),
+                address(want),
+                address(this),
+                block.timestamp,
+                _amountShort,
+                _amountWant.mul(slippageAdj).div(BASIS_PRECISION),
+                0
+            )
         );
 
         uint256 _amountWantOut = want.balanceOf(address(this)) - wantBalanceBefore;
@@ -972,17 +979,18 @@ abstract contract CoreStrategyAaveGamma is BaseStrategy {
         if (amountInExactWant < _minSwap || _amountOut < _minSwap) {
             return (0);
         }
-
-        // Sub Optimal implementation given camelot does not have SwapTokensForExactTokens
-        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            amountInExactWant,
-            _amountOut.mul(slippageAdj).div(BASIS_PRECISION),
-            getTokenOutPath(address(want), address(short)), // _pathWantToShort(),
-            address(this),
-            address(this),
-            block.timestamp
+        router.exactInputSingleSupportingFeeOnTransferTokens(
+            ISwapRouter.ExactInputSingleParams(
+                address(want),
+                address(short),
+                address(this),
+                block.timestamp,
+                amountInExactWant,
+                _amountOut.mul(slippageAdj).div(BASIS_PRECISION),
+                0
+            )
         );
-        
+    
         // Right a function to dividie 1000 / 10
         //_slippageWant = amountInExactWant - amountInWant;
     }

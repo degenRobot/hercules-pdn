@@ -37,7 +37,7 @@ contract USDCWETHTORCHV2 is CoreStrategyAaveGamma {
                 0x885C8AEC5867571582545F894A5906971dB9bf27, // aToken
                 0x8Bb19e3DD277a73D4A95EE434F14cE4B92898421, // variableDebtTOken
                 0xB9FABd7500B2C6781c35Dd48d54f81fc2299D7AF, // PoolAddressesProvider
-                0x14679D1Da243B8c7d1A4c6d0523A2Ce614Ef027C, // router
+                0xBde5839EC36Db2aC492b79e9E3B75e15FA8A59ec, // router
                 1e4 //mindeploy
             )
         )
